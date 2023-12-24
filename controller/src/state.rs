@@ -120,6 +120,22 @@ impl State {
         }
     }
 
+    fn send_command(info: &ServiceInfo, request: &str) {
+        let address = format!(
+            "{}:{}",
+            info.get_hostname().trim_end_matches('.'),
+            info.get_port()
+        );
+
+        println!("[send_request] connecting to url {}", address);
+
+        let mut stream = TcpStream::connect(address).unwrap();
+
+        println!("[send_request] sending request: {}", request);
+
+        stream.write_all(request.as_bytes()).unwrap()
+    }
+
     /// Attempts to get the latest `Datum` from the `Sensor` with the specified `Id`.
     #[allow(dead_code)] // remove this ASAP
     pub fn read_sensor(info: &ServiceInfo) -> Result<Datum, String> {
@@ -167,22 +183,28 @@ impl State {
     }
 
     pub fn poll(&self) -> JoinHandle<()> {
-        let mutex = Arc::clone(&self.sensors);
+        let sensors_mutex = Arc::clone(&self.sensors);
         let assessors = Arc::clone(&self.assessors);
+        let actuators_mutex = Arc::clone(&self.actuators);
 
         std::thread::spawn(move || {
             loop {
-                // We put the lock_result in this inner scope so the lock is released at the end of the scope
+                // We put the locks in this inner scope so the lock is released at the end of the scope
                 {
-                    let lock_result = mutex.lock();
-                    let mutex_guard = lock_result.unwrap();
+                    let sensors_lock = sensors_mutex.lock();
+                    let sensors = sensors_lock.unwrap();
 
-                    println!("known sensors: {}", mutex_guard.len());
+                    println!("known sensors: {}", sensors.len());
+
+                    let actuators_lock = actuators_mutex.lock();
+                    let actuators = actuators_lock.unwrap();
+
+                    println!("known actuators: {}", actuators.len());
 
                     let assessors = assessors.lock();
                     let assessors = assessors.unwrap();
 
-                    for (id, service_info) in mutex_guard.iter() {
+                    for (id, service_info) in sensors.iter() {
                         println!("[poll] polling sensor with id {}", id);
                         let datum = Self::read_sensor(service_info);
                         let model = Self::extract_model(service_info);
@@ -209,12 +231,20 @@ impl State {
                                         datum
                                     );
 
-                                    let command = (assessor.assess)(&datum).map(|s| s.to_string());
+                                    let command = (assessor.assess)(&datum);
 
-                                    println!(
-                                        "[poll] sending command [{}] to actuator",
-                                        command.unwrap_or(String::from("None"))
-                                    )
+                                    if let Some(command) = command {
+                                        let command_str = command.to_string();
+
+                                        println!(
+                                            "[poll] sending command [{}] to actuator",
+                                            command_str
+                                        );
+
+                                        if let Some(actuator) = actuators.get(id) {
+                                            Self::send_command(actuator, command_str.as_str());
+                                        }
+                                    }
                                 }
                             }
                         } else {

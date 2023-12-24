@@ -29,7 +29,7 @@ impl Device for TemperatureActuator {
     }
 
     fn get_handler() -> Handler {
-        Handler::new(|_| ())
+        Handler::new(Self::handle)
     }
 }
 
