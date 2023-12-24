@@ -6,34 +6,12 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use mdns_sd::ServiceInfo;
-use phf::{phf_map, Map};
 
-use datum::{Datum, DatumUnit};
+use datum::Datum;
 use device::id::Id;
 use device::model::Model;
 
-struct Assessor {
-    assess: fn(&Datum) -> Option<Box<dyn actuator::Command>>,
-}
-
-/// Default `Assessor`s for different `Model`s of `Device`.
-///
-/// Can be overridden by the user.
-static DEFAULT_ASSESSOR: Map<&str, Assessor> = phf_map! {
-    "Thermo-5000" => Assessor { assess: |datum| {
-
-        let t = datum.get_as_float().unwrap();
-        assert_eq!(datum.unit, DatumUnit::DegreesC);
-
-        if t > 28.0 {
-            Some(Box::new(actuator_temperature::command::Command::CoolTo(25.0)))
-        } else if t < 22.0 {
-            Some(Box::new(actuator_temperature::command::Command::HeatTo(25.0)))
-        } else {
-            None
-        }
-    }}
-};
+use crate::assessor::{Assessor, DEFAULT_ASSESSOR};
 
 pub struct State {
     // histories: HashMap<Id, SensorHistory>,

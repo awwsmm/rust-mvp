@@ -7,6 +7,7 @@ use device::Device;
 
 use crate::state::State;
 
+mod assessor;
 mod state;
 
 /// The Controller queries the `Sensor`s for `Datum`s and sends commands to the `Actuator`s.
