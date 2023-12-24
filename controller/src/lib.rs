@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use device::{Device, Id, Model, Name};
+use device::id::Id;
+use device::model::Model;
+use device::name::Name;
+use device::Device;
 
 use crate::state::State;
 
@@ -39,7 +42,7 @@ impl Default for Controller {
     fn default() -> Self {
         Self {
             name: Name::new("controller"),
-            model: Model::CONTROLLER,
+            model: Model::Controller,
             id: Id::new("controller"),
             state: State::new(),
         }

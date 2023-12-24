@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use rand::{thread_rng, Rng};
 
 use datum::{Datum, DatumUnit, DatumValueType};
-use device::Id;
+use device::id::Id;
 
 use crate::generator::DatumGenerator;
 

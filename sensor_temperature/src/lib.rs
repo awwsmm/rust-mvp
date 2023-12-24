@@ -1,5 +1,8 @@
 use datum::{Datum, DatumUnit};
-use device::{Device, Id, Model, Name};
+use device::id::Id;
+use device::model::Model;
+use device::name::Name;
+use device::Device;
 use sensor::Sensor;
 
 pub struct TemperatureSensor {

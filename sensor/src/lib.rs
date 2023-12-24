@@ -36,7 +36,9 @@ pub trait Sensor: Device {
 #[cfg(test)]
 mod sensor_tests {
     use datum::{DatumUnit, DatumValue};
-    use device::{Id, Model, Name};
+    use device::id::Id;
+    use device::model::Model;
+    use device::name::Name;
 
     use super::*;
 

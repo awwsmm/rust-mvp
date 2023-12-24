@@ -1,8 +1,15 @@
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, TcpListener};
 
 use mdns_sd::ServiceInfo;
+
+use crate::id::Id;
+use crate::model::Model;
+use crate::name::Name;
+
+pub mod id;
+pub mod model;
+pub mod name;
 
 /// A `Device` exists on the network and is discoverable via mDNS.
 pub trait Device {
@@ -56,65 +63,5 @@ pub trait Device {
     fn bind(&self, ip: IpAddr, port: u16, group: &str) -> TcpListener {
         self.register(ip, port, group);
         self.listener(ip, port)
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct Name(pub String);
-
-impl Display for Name {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Name {
-    pub fn new(name: &str) -> Name {
-        Name(String::from(name))
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum Model {
-    CONTROLLER,
-    UNSUPPORTED,
-    Thermo5000,
-}
-
-impl Display for Model {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let string = match self {
-            Model::CONTROLLER => "CONTROLLER",
-            Model::UNSUPPORTED => "UNSUPPORTED",
-            Model::Thermo5000 => "Thermo-5000",
-        };
-
-        write!(f, "{}", string)
-    }
-}
-
-impl Model {
-    pub fn parse(string: &str) -> Result<Model, String> {
-        match string {
-            "CONTROLLER" => Ok(Model::CONTROLLER),
-            "UNSUPPORTED" => Ok(Model::UNSUPPORTED),
-            "Thermo-5000" => Ok(Model::Thermo5000),
-            _ => Err(format!("unknown Model '{}'", string)),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Eq, Hash, Clone)]
-pub struct Id(pub String);
-
-impl Display for Id {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Id {
-    pub fn new(id: &str) -> Id {
-        Id(String::from(id))
     }
 }

@@ -9,7 +9,8 @@ use mdns_sd::ServiceInfo;
 use phf::{phf_map, Map};
 
 use datum::{Datum, DatumUnit};
-use device::{Id, Model};
+use device::id::Id;
+use device::model::Model;
 
 struct Assessor {
     assess: fn(&Datum) -> Option<Box<dyn actuator::Command>>,

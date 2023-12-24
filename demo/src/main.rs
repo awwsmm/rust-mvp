@@ -3,7 +3,10 @@ use uuid::Uuid;
 use actuator::Actuator;
 use actuator_temperature::TemperatureActuator;
 use controller::Controller;
-use device::{Device, Id, Model, Name};
+use device::id::Id;
+use device::model::Model;
+use device::name::Name;
+use device::Device;
 use sensor::Sensor;
 use sensor_temperature::TemperatureSensor;
 

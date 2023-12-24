@@ -5,7 +5,8 @@ use std::net::TcpListener;
 
 use uuid::Uuid;
 
-use device::{Device, Id};
+use device::id::Id;
+use device::Device;
 
 /// An Actuator mutates the Environment.
 pub trait Actuator: Device {
