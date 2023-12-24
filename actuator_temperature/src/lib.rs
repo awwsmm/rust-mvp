@@ -1,5 +1,5 @@
 use actuator::Actuator;
-use device::{Device, Id, Name};
+use device::{Device, Id, Model, Name};
 
 use crate::command::Command;
 
@@ -7,12 +7,17 @@ mod command;
 
 pub struct TemperatureActuator {
     id: Id,
+    model: Model,
     name: Name,
 }
 
 impl Device for TemperatureActuator {
     fn get_name(&self) -> &Name {
         &self.name
+    }
+
+    fn get_model(&self) -> &Model {
+        &self.model
     }
 
     fn get_id(&self) -> &Id {
@@ -31,7 +36,7 @@ impl Actuator for TemperatureActuator {
 }
 
 impl TemperatureActuator {
-    pub fn new(id: Id, name: Name) -> TemperatureActuator {
-        TemperatureActuator { id, name }
+    pub fn new(id: Id, model: Model, name: Name) -> TemperatureActuator {
+        TemperatureActuator { id, model, name }
     }
 }

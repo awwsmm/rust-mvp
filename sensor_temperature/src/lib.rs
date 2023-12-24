@@ -1,15 +1,20 @@
 use datum::{Datum, DatumUnit};
-use device::{Device, Id, Name};
+use device::{Device, Id, Model, Name};
 use sensor::Sensor;
 
 pub struct TemperatureSensor {
     id: Id,
+    model: Model,
     name: Name,
 }
 
 impl Device for TemperatureSensor {
     fn get_name(&self) -> &Name {
         &self.name
+    }
+
+    fn get_model(&self) -> &Model {
+        &self.model
     }
 
     fn get_id(&self) -> &Id {
@@ -25,7 +30,7 @@ impl Sensor for TemperatureSensor {
 }
 
 impl TemperatureSensor {
-    pub fn new(id: Id, name: Name) -> TemperatureSensor {
-        TemperatureSensor { id, name }
+    pub fn new(id: Id, model: Model, name: Name) -> TemperatureSensor {
+        TemperatureSensor { id, model, name }
     }
 }

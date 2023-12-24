@@ -9,6 +9,9 @@ pub trait Device {
     /// Returns the user-friendly name of this `Device`.
     fn get_name(&self) -> &Name;
 
+    /// Returns the model of this `Device`, which may or may not be supported by the `Controller`.
+    fn get_model(&self) -> &Model;
+
     /// Returns the unique ID of this `Device`.
     fn get_id(&self) -> &Id;
 
@@ -23,6 +26,7 @@ pub trait Device {
 
         let mut properties = HashMap::new();
         properties.insert(String::from("id"), self.get_id().to_string());
+        properties.insert(String::from("model"), self.get_model().to_string());
 
         let my_service = ServiceInfo::new(
             domain.as_str(),
@@ -67,6 +71,21 @@ impl Display for Name {
 impl Name {
     pub fn new(name: &str) -> Name {
         Name(String::from(name))
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct Model(pub String);
+
+impl Display for Model {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Model {
+    pub fn new(model: &str) -> Model {
+        Model(String::from(model))
     }
 }
 

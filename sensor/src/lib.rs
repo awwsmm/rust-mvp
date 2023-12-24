@@ -36,13 +36,14 @@ pub trait Sensor: Device {
 #[cfg(test)]
 mod sensor_tests {
     use datum::{DatumUnit, DatumValue};
-    use device::{Id, Name};
+    use device::{Id, Model, Name};
 
     use super::*;
 
     struct Thermometer {
         id: Id,
         name: Name,
+        model: Model,
     }
 
     impl Thermometer {
@@ -50,6 +51,7 @@ mod sensor_tests {
             Thermometer {
                 id: Id::new("should be random"),
                 name: Name::new("Thermometer"),
+                model: Model::new("Thermo-5000"),
             }
         }
     }
@@ -57,6 +59,10 @@ mod sensor_tests {
     impl Device for Thermometer {
         fn get_name(&self) -> &Name {
             &self.name
+        }
+
+        fn get_model(&self) -> &Model {
+            &self.model
         }
 
         fn get_id(&self) -> &Id {

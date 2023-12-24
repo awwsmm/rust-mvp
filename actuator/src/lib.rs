@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::io::Read;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
@@ -70,4 +71,4 @@ pub trait Actuator: Device {
     }
 }
 
-pub trait Command {}
+pub trait Command: Display {}

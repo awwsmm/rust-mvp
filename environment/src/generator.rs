@@ -1,11 +1,9 @@
-use std::sync::Mutex;
-
 use chrono::{DateTime, Utc};
 
 use datum::{Datum, DatumUnit, DatumValue};
 
 pub struct DatumGenerator {
-    generator: Mutex<Box<dyn FnMut(DateTime<Utc>) -> DatumValue>>,
+    generator: Box<dyn FnMut(DateTime<Utc>) -> DatumValue>,
     unit: DatumUnit,
 }
 
@@ -14,15 +12,12 @@ impl DatumGenerator {
         generator: Box<dyn FnMut(DateTime<Utc>) -> DatumValue>,
         unit: DatumUnit,
     ) -> DatumGenerator {
-        DatumGenerator {
-            generator: Mutex::new(generator),
-            unit,
-        }
+        DatumGenerator { generator, unit }
     }
 
-    pub(crate) fn generate(&self) -> Datum {
+    pub(crate) fn generate(&mut self) -> Datum {
         let now = Utc::now();
-        let mut generator = self.generator.lock().unwrap();
+        let generator = &mut self.generator;
         let value = (*generator)(now);
         Datum::new(value, self.unit, now)
     }
@@ -90,7 +85,7 @@ mod generator_tests {
     /// Slope is positive -- tests that a value generated earlier is less than a value generated later
     fn test_f32_linear_positive_slope() {
         let slope = 1.0;
-        let generator = time_dependent::f32_linear(slope, 0.0, DatumUnit::DegreesC);
+        let mut generator = time_dependent::f32_linear(slope, 0.0, DatumUnit::DegreesC);
 
         // generate a datum, wait, then generate another
         let earlier = generator.generate();
@@ -105,7 +100,7 @@ mod generator_tests {
     /// Slope is negative -- tests that a value generated earlier is greater than a value generated later
     fn test_f32_linear_negative_slope() {
         let slope = -1.0;
-        let generator = time_dependent::f32_linear(slope, 0.0, DatumUnit::DegreesC);
+        let mut generator = time_dependent::f32_linear(slope, 0.0, DatumUnit::DegreesC);
 
         // generate a datum, wait, then generate another
         let earlier = generator.generate();
@@ -120,7 +115,7 @@ mod generator_tests {
     /// Slope is positive -- tests that a value generated earlier is less than a value generated later
     fn test_i32_linear_positive_slope() {
         let slope = 1;
-        let generator = time_dependent::i32_linear(slope, 0, DatumUnit::DegreesC);
+        let mut generator = time_dependent::i32_linear(slope, 0, DatumUnit::DegreesC);
 
         // generate a datum, wait, then generate another
         let earlier = generator.generate();
@@ -135,7 +130,7 @@ mod generator_tests {
     /// Slope is negative -- tests that a value generated earlier is greater than a value generated later
     fn test_i32_linear_negative_slope() {
         let slope = -1;
-        let generator = time_dependent::i32_linear(slope, 0, DatumUnit::DegreesC);
+        let mut generator = time_dependent::i32_linear(slope, 0, DatumUnit::DegreesC);
 
         // generate a datum, wait, then generate another
         let earlier = generator.generate();
@@ -149,7 +144,7 @@ mod generator_tests {
     #[test]
     fn test_bool_alternating() {
         let initial = false;
-        let generator = bool_alternating(initial, DatumUnit::DegreesC);
+        let mut generator = bool_alternating(initial, DatumUnit::DegreesC);
 
         // generate a datum, then generate another, and another
         let first = generator.generate();

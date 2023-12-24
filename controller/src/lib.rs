@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use device::{Device, Id, Name};
+use device::{Device, Id, Model, Name};
 
 use crate::state::State;
 
@@ -16,6 +16,7 @@ mod state;
 /// in memory.
 pub struct Controller {
     name: Name,
+    model: Model,
     id: Id,
     state: State,
 }
@@ -23,6 +24,10 @@ pub struct Controller {
 impl Device for Controller {
     fn get_name(&self) -> &Name {
         &self.name
+    }
+
+    fn get_model(&self) -> &Model {
+        &self.model
     }
 
     fn get_id(&self) -> &Id {
@@ -34,6 +39,7 @@ impl Default for Controller {
     fn default() -> Self {
         Self {
             name: Name::new("controller"),
+            model: Model::new("controller"),
             id: Id::new("controller"),
             state: State::new(),
         }
