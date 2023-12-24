@@ -74,18 +74,33 @@ impl Name {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct Model(pub String);
+#[derive(Clone, Copy)]
+pub enum Model {
+    CONTROLLER,
+    UNSUPPORTED,
+    Thermo5000,
+}
 
 impl Display for Model {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        let string = match self {
+            Model::CONTROLLER => "CONTROLLER",
+            Model::UNSUPPORTED => "UNSUPPORTED",
+            Model::Thermo5000 => "Thermo-5000",
+        };
+
+        write!(f, "{}", string)
     }
 }
 
 impl Model {
-    pub fn new(model: &str) -> Model {
-        Model(String::from(model))
+    pub fn parse(string: &str) -> Result<Model, String> {
+        match string {
+            "CONTROLLER" => Ok(Model::CONTROLLER),
+            "UNSUPPORTED" => Ok(Model::UNSUPPORTED),
+            "Thermo-5000" => Ok(Model::Thermo5000),
+            _ => Err(format!("unknown Model '{}'", string)),
+        }
     }
 }
 

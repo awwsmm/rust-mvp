@@ -6,6 +6,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use mdns_sd::ServiceInfo;
+use phf::{phf_map, Map};
 
 use datum::Datum;
 use device::{Id, Model};
@@ -13,6 +14,10 @@ use device::{Id, Model};
 struct Assessor {
     assess: fn(&Datum) -> Option<String>,
 }
+
+static DEFAULT_ASSESSOR: Map<&str, Assessor> = phf_map! {
+    "Thermo-5000" => Assessor { assess: |_datum| Some(String::from("serialized command")) }
+};
 
 pub struct State {
     // histories: HashMap<Id, SensorHistory>,
@@ -37,24 +42,20 @@ impl State {
         Self::default()
     }
 
-    fn supported_devices() -> Vec<Model> {
-        vec![
-            // Model::new("actuator_temperature")
-        ]
-    }
-
     fn is_supported(model: &Model) -> bool {
-        Self::supported_devices().contains(model)
+        DEFAULT_ASSESSOR.contains_key(model.to_string().as_str())
     }
 
     fn extract_id(info: &ServiceInfo) -> Id {
         let id = info.get_property("id").unwrap().to_string();
-        Id::new(id.as_str())
+        let id = id.trim_start_matches("id=");
+        Id::new(id)
     }
 
     fn extract_model(info: &ServiceInfo) -> Model {
         let model = info.get_property("model").unwrap().to_string();
-        Model::new(model.as_str())
+        let model = model.trim_start_matches("model=");
+        Model::parse(model).unwrap()
     }
 
     pub fn discover_sensors(&self) -> JoinHandle<()> {
@@ -187,15 +188,25 @@ impl State {
                     for (id, service_info) in mutex_guard.iter() {
                         println!("[poll] polling sensor with id {}", id);
                         let datum = Self::read_sensor(service_info).unwrap();
+                        let model = Self::extract_model(service_info);
 
                         println!("[poll] assessing datum received from sensor");
 
-                        if let Some(assessor) = assessors.get(id) {
+                        if let Some(assessor) = assessors
+                            .get(id)
+                            .or_else(|| DEFAULT_ASSESSOR.get(model.to_string().as_str()))
+                        {
                             let command = (assessor.assess)(&datum).map(|s| s.to_string());
 
                             println!(
-                                "[poll] sending command ({}) to actuator",
+                                "[poll] sending command [{}] to actuator",
                                 command.unwrap_or(String::from("None"))
+                            )
+                        } else {
+                            println!(
+                                "[poll] assessor does not contain id: {}\nknown ids: {:?}",
+                                id,
+                                assessors.keys()
                             )
                         }
                     }

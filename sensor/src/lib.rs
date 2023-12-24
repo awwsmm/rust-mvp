@@ -51,7 +51,7 @@ mod sensor_tests {
             Thermometer {
                 id: Id::new("should be random"),
                 name: Name::new("Thermometer"),
-                model: Model::new("Thermo-5000"),
+                model: Model::Thermo5000,
             }
         }
     }

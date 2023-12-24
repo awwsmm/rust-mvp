@@ -18,13 +18,13 @@ fn main() {
     // id has to be the same for the sensor and its corresponding actuator
     let id = Id::new(&Uuid::new_v4().to_string());
     let name = Name::new("user-defined device name, like 'Kitchen Thermostat'");
-    let model = Model::new("Thermo-5000");
+    let model = Model::Thermo5000;
 
     // ---------- here is the sensor ----------
 
     let sensor_port = 8787;
 
-    let sensor = TemperatureSensor::new(id.clone(), model.clone(), name.clone());
+    let sensor = TemperatureSensor::new(id.clone(), model, name.clone());
     let listener = sensor.bind(ip, sensor_port, "_sensor");
 
     std::thread::spawn(move || {

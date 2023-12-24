@@ -39,7 +39,7 @@ impl Default for Controller {
     fn default() -> Self {
         Self {
             name: Name::new("controller"),
-            model: Model::new("controller"),
+            model: Model::CONTROLLER,
             id: Id::new("controller"),
             state: State::new(),
         }
