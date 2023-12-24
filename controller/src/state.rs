@@ -8,15 +8,32 @@ use std::time::Duration;
 use mdns_sd::ServiceInfo;
 use phf::{phf_map, Map};
 
-use datum::Datum;
+use datum::{Datum, DatumUnit};
 use device::{Id, Model};
 
 struct Assessor {
     assess: fn(&Datum) -> Option<String>,
 }
 
+/// Default `Assessor`s for different `Model`s of `Device`.
+///
+/// Can be overridden by the user.
 static DEFAULT_ASSESSOR: Map<&str, Assessor> = phf_map! {
-    "Thermo-5000" => Assessor { assess: |_datum| Some(String::from("serialized command")) }
+    "Thermo-5000" => Assessor { assess: |datum| {
+
+        let t = datum.get_as_float().unwrap();
+        assert_eq!(datum.unit, DatumUnit::DegreesC);
+
+        let command = if t > 28.0 {
+            Some("cool")
+        } else if t < 22.0 {
+            Some("heat")
+        } else {
+            None
+        };
+
+        command.map(String::from)
+    }}
 };
 
 pub struct State {
