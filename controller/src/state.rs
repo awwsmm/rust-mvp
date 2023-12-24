@@ -95,9 +95,9 @@ impl State {
         })
     }
 
-    /// Connects to an address, sends the specified request, and returns the response
+    /// Connects to an address, sends the specified request, and returns the response, or an error
     #[allow(dead_code)] // remove this ASAP
-    fn send_request(info: &ServiceInfo, request: &str) -> String {
+    fn send_request(info: &ServiceInfo, request: &str) -> Result<String, String> {
         let address = format!(
             "{}:{}",
             info.get_hostname().trim_end_matches('.'),
@@ -108,16 +108,16 @@ impl State {
 
         let mut stream = TcpStream::connect(address).unwrap();
 
+        println!("[send_request] sending request: {}", request);
+
         stream.write_all(request.as_bytes()).unwrap();
 
-        let mut response = Vec::new();
-        stream.read_to_end(&mut response).unwrap();
+        let mut response = String::new();
 
-        String::from(
-            std::str::from_utf8(&response)
-                .map(|s| s.trim())
-                .unwrap_or("Failed to read response"),
-        )
+        match stream.read_to_string(&mut response) {
+            Err(_) => Err(String::from("unable to read stream")),
+            Ok(_) => Ok(response),
+        }
     }
 
     /// Attempts to get the latest `Datum` from the `Sensor` with the specified `Id`.
@@ -133,11 +133,14 @@ impl State {
             "[read_sensor] response from url {}:{}\n----------\n{}\n----------",
             info.get_hostname().trim_end_matches('.'),
             info.get_port(),
-            response
+            response.clone().unwrap_or(String::from("<error>"))
         );
 
         // parse the response and return it
-        Datum::parse(response.lines().last().unwrap_or_default())
+        response.and_then(|r| match r.trim().lines().last() {
+            None => Err(String::from("cannot read response body")),
+            Some(line) => Datum::parse(line),
+        })
     }
 
     #[allow(dead_code)] // remove this ASAP
@@ -157,7 +160,7 @@ impl State {
             "[command_actuator] response from url {}:{}\n----------\n{}\n----------",
             info.get_hostname().trim_end_matches('.'),
             info.get_port(),
-            response
+            response.unwrap_or(String::from("<error>"))
         );
 
         Ok(())
@@ -181,21 +184,39 @@ impl State {
 
                     for (id, service_info) in mutex_guard.iter() {
                         println!("[poll] polling sensor with id {}", id);
-                        let datum = Self::read_sensor(service_info).unwrap();
+                        let datum = Self::read_sensor(service_info);
                         let model = Self::extract_model(service_info);
 
-                        println!("[poll] assessing datum received from sensor");
+                        println!(
+                            "[poll] assessing datum received from sensor (model={})",
+                            model
+                        );
+
+                        println!(
+                            "available assessors: {:?}",
+                            assessors.keys().map(|each| each.to_string())
+                        );
 
                         if let Some(assessor) = assessors
                             .get(id)
                             .or_else(|| DEFAULT_ASSESSOR.get(model.to_string().as_str()))
                         {
-                            let command = (assessor.assess)(&datum).map(|s| s.to_string());
+                            match datum {
+                                Err(msg) => println!("unable to read sensor due to: {}", msg),
+                                Ok(datum) => {
+                                    println!(
+                                        "[poll] successfully received datum from sensor: {}",
+                                        datum
+                                    );
 
-                            println!(
-                                "[poll] sending command [{}] to actuator",
-                                command.unwrap_or(String::from("None"))
-                            )
+                                    let command = (assessor.assess)(&datum).map(|s| s.to_string());
+
+                                    println!(
+                                        "[poll] sending command [{}] to actuator",
+                                        command.unwrap_or(String::from("None"))
+                                    )
+                                }
+                            }
                         } else {
                             println!(
                                 "[poll] assessor does not contain id: {}\nknown ids: {:?}",
@@ -211,10 +232,4 @@ impl State {
             }
         })
     }
-}
-
-#[allow(dead_code)] // remove ASAP
-struct SensorHistory {
-    id: Id,
-    data: Vec<Datum>,
 }

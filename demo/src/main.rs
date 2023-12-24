@@ -1,13 +1,11 @@
 use uuid::Uuid;
 
-use actuator::Actuator;
 use actuator_temperature::TemperatureActuator;
 use controller::Controller;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
 use device::Device;
-use sensor::Sensor;
 use sensor_temperature::TemperatureSensor;
 
 fn main() {
@@ -28,26 +26,20 @@ fn main() {
     let sensor_port = 8787;
 
     let sensor = TemperatureSensor::new(id.clone(), model, name.clone());
-    let listener = sensor.bind(ip, sensor_port, "_sensor");
 
-    std::thread::spawn(move || {
-        sensor.respond(listener);
-    });
+    sensor.run(ip, sensor_port, "_sensor");
 
     // ---------- here is the actuator ----------
 
     let actuator_port = 9898;
 
     let actuator = TemperatureActuator::new(id, model, name);
-    let listener = actuator.bind(ip, actuator_port, "_actuator");
 
-    std::thread::spawn(move || {
-        actuator.respond(listener);
-    });
+    actuator.run(ip, actuator_port, "_actuator");
 
     // --------------------------------------------------------------------------------
     // spin up the controller
     // --------------------------------------------------------------------------------
 
-    Controller::new().run();
+    Controller::new().start();
 }

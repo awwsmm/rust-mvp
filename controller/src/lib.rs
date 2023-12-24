@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use device::handler::Handler;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
@@ -37,6 +38,10 @@ impl Device for Controller {
     fn get_id(&self) -> &Id {
         &self.id
     }
+
+    fn get_handler() -> Handler {
+        Handler::new(|_| ())
+    }
 }
 
 impl Default for Controller {
@@ -56,7 +61,7 @@ impl Controller {
     }
 
     /// Starts the discovery process as well as polling sensors
-    pub fn run(&mut self) {
+    pub fn start(&mut self) {
         // spawn a thread to look for sensors on the network continually
         self.state.discover_sensors();
 

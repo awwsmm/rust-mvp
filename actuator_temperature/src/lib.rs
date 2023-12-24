@@ -1,4 +1,5 @@
 use actuator::Actuator;
+use device::handler::Handler;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
@@ -25,6 +26,10 @@ impl Device for TemperatureActuator {
 
     fn get_id(&self) -> &Id {
         &self.id
+    }
+
+    fn get_handler() -> Handler {
+        Handler::new(|_| ())
     }
 }
 

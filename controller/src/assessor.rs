@@ -18,7 +18,7 @@ pub static DEFAULT_ASSESSOR: Map<&str, Assessor> = phf_map! {
 
         if t > 28.0 {
             Some(Box::new(actuator_temperature::command::Command::CoolTo(25.0)))
-        } else if t < 22.0 {
+        } else if t < 26.0 {
             Some(Box::new(actuator_temperature::command::Command::HeatTo(25.0)))
         } else {
             None
