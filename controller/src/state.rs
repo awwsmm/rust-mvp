@@ -12,7 +12,7 @@ use datum::{Datum, DatumUnit};
 use device::{Id, Model};
 
 struct Assessor {
-    assess: fn(&Datum) -> Option<String>,
+    assess: fn(&Datum) -> Option<Box<dyn actuator::Command>>,
 }
 
 /// Default `Assessor`s for different `Model`s of `Device`.
@@ -24,15 +24,13 @@ static DEFAULT_ASSESSOR: Map<&str, Assessor> = phf_map! {
         let t = datum.get_as_float().unwrap();
         assert_eq!(datum.unit, DatumUnit::DegreesC);
 
-        let command = if t > 28.0 {
-            Some("cool")
+        if t > 28.0 {
+            Some(Box::new(actuator_temperature::command::Command::CoolTo(25.0)))
         } else if t < 22.0 {
-            Some("heat")
+            Some(Box::new(actuator_temperature::command::Command::HeatTo(25.0)))
         } else {
             None
-        };
-
-        command.map(String::from)
+        }
     }}
 };
 

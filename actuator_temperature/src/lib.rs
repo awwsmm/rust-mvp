@@ -3,7 +3,7 @@ use device::{Device, Id, Model, Name};
 
 use crate::command::Command;
 
-mod command;
+pub mod command;
 
 pub struct TemperatureActuator {
     id: Id,
