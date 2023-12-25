@@ -7,15 +7,15 @@ use mdns_sd::ServiceInfo;
 
 use crate::handler::Handler;
 use crate::id::Id;
+use crate::message::Message;
 use crate::model::Model;
 use crate::name::Name;
-use crate::request::Request;
 
 pub mod handler;
 pub mod id;
+pub mod message;
 pub mod model;
 pub mod name;
-pub mod request;
 
 /// A `Device` exists on the network and is discoverable via mDNS.
 pub trait Device {
@@ -68,19 +68,19 @@ pub trait Device {
     fn get_handler() -> Handler;
 
     fn extract_request(stream: &TcpStream) -> String {
-        let mut request = String::new();
-        BufReader::new(stream).read_line(&mut request).unwrap();
-        request
+        let mut message = String::new();
+        BufReader::new(stream).read_line(&mut message).unwrap();
+        message
     }
 
-    /// Reads a request from a `TcpStream` and parses it into the request line, headers, and body.
-    fn parse_http_request(stream: &TcpStream) -> Result<Request, String> {
+    /// Reads a message from a `TcpStream` and parses it into the message line, headers, and body.
+    fn parse_http_request(stream: &TcpStream) -> Result<Message, String> {
         let mut reader = BufReader::new(stream);
 
-        let mut request = String::new();
+        let mut message = String::new();
         reader
-            .read_line(&mut request)
-            .map_err(|_| String::from("cannot read request"))?;
+            .read_line(&mut message)
+            .map_err(|_| String::from("cannot read message"))?;
 
         let mut headers: HashMap<String, String> = HashMap::new();
 
@@ -111,7 +111,16 @@ pub trait Device {
             }
         }
 
-        Ok(Request::new(request.trim().into(), headers, body))
+        let message = Message::new(message.trim(), headers, body);
+
+        println!(
+            "[parse_http_request] received\n==========\nmessage line: {}\nheaders: {:?}\nbody:\n----------\n{:?}\n==========",
+            message.request_line.trim(),
+            message.headers,
+            message.body.as_ref().unwrap_or(&String::new())
+        );
+
+        Ok(message)
     }
 
     /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually

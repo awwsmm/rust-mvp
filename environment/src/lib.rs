@@ -70,23 +70,23 @@ impl Environment {
     }
 
     #[allow(dead_code)] // remove this ASAP
-    pub fn handle_request(&mut self, request: &str) -> String {
-        if request.starts_with("POST /set/") {
+    pub fn handle_request(&mut self, message: &str) -> String {
+        if message.starts_with("POST /set/") {
             // if the Environment gets a command from an actuator with a Device::Id that it is not
             // yet aware of, it should ignore it
 
             // Not complete, but this is the general idea
             // Extract ID and command
-            let (id, command) = self.extract_command(request);
+            let (id, command) = self.extract_command(message);
             match self.execute_command(&id, &command) {
                 Some(datum) => format!("HTTP/1.1 200 OK\r\n\r\n{:?}", datum),
                 None => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
             }
-        } else if request.starts_with("GET /get/") {
-            // if the Environment gets a request from a sensor with a Device::Id that it is not
+        } else if message.starts_with("GET /get/") {
+            // if the Environment gets a message from a sensor with a Device::Id that it is not
             // yet aware of, it should save the Id and pick from a random data generator
 
-            let parsed = Environment::parse_get_request(request);
+            let parsed = Environment::parse_get_request(message);
 
             if let Ok((id, value_type, unit)) = parsed {
                 let datum = self.get(&id, value_type, unit);
@@ -117,14 +117,14 @@ impl Environment {
 
     #[allow(dead_code)] // remove this ASAP
     fn handle_client(&mut self, mut stream: TcpStream) -> std::io::Result<()> {
-        let mut request = Vec::new();
-        stream.read_to_end(&mut request).unwrap();
+        let mut message = Vec::new();
+        stream.read_to_end(&mut message).unwrap();
 
-        let request = std::str::from_utf8(&request)
+        let message = std::str::from_utf8(&message)
             .map(|s| s.trim())
             .unwrap_or("Failed to read response");
 
-        let response = self.handle_request(request);
+        let response = self.handle_request(message);
 
         stream.write_all(response.as_bytes())?;
         stream.flush()?;
@@ -144,9 +144,9 @@ impl Environment {
     }
 
     #[allow(dead_code)] // remove this ASAP
-    fn parse_get_request(request: &str) -> Result<(Id, DatumValueType, DatumUnit), String> {
-        // example request: "GET /get/test_id/float/°C"
-        let mut parts = request.split('/');
+    fn parse_get_request(message: &str) -> Result<(Id, DatumValueType, DatumUnit), String> {
+        // example message: "GET /get/test_id/float/°C"
+        let mut parts = message.split('/');
 
         parts.next(); // throw out "GET"
         parts.next(); // throw out "get"
@@ -162,7 +162,7 @@ impl Environment {
             }
             _ => Err(format!(
                 "Cannot split {} into /get/<sensor_id>/<type>/<unit>",
-                request
+                message
             )),
         }
     }

@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::io::Write;
 use std::net::TcpStream;
 
+use device::message::Message;
 use device::Device;
 
 /// An Actuator mutates the Environment.
@@ -19,16 +20,17 @@ pub trait Actuator: Device {
 
     /// Responds to all incoming requests by forwarding them to the `Environment`.
     fn handle(stream: &mut TcpStream) {
-        if let Ok(request) = Self::parse_http_request(stream) {
+        if let Ok(message) = Self::parse_http_request(stream) {
             println!(
                 "[handle] actuator received\n==========\nrequest line: {}\nheaders: {:?}\nbody:\n----------\n{:?}\n==========",
-                request.request_line.trim(),
-                request.headers,
-                request.body.unwrap_or_default()
+                message.request_line.trim(),
+                message.headers,
+                message.body.unwrap_or_default()
             );
 
-            let ack = "HTTP/1.1 200 OK\r\n\r\n";
-            stream.write_all(ack.as_bytes()).unwrap();
+            stream
+                .write_all(Message::ack().to_string().as_bytes())
+                .unwrap();
 
             // TODO forward command to Environment
         }

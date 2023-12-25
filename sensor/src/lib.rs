@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use std::io::Write;
 use std::net::TcpStream;
 
 use datum::Datum;
+use device::message::Message;
 use device::Device;
 
 /// A Sensor collects data from the Environment.
@@ -14,17 +16,33 @@ pub trait Sensor: Device {
     fn get_datum() -> Datum;
 
     fn handle(stream: &mut TcpStream, get_datum: fn() -> Datum) {
-        let request = Self::extract_request(stream);
-        println!("received request: {}", request.trim());
+        if let Ok(message) = Self::parse_http_request(stream) {
+            println!("received request: {}", message.request_line);
 
-        let contents = get_datum().to_string();
-        let ack = format!(
-            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}\r\n\r\n",
-            contents.len(),
-            contents
-        );
+            let contents = get_datum().to_string();
 
-        stream.write_all(ack.as_bytes()).unwrap();
+            let ack = Message::respond_ok_with_body(HashMap::new(), contents.as_str()).to_string();
+
+            // let ack = format!(
+            //     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}\r\n\r\n",
+            //     contents.len(),
+            //     contents
+            // );
+
+            stream.write_all(ack.as_bytes()).unwrap();
+        }
+
+        // let request = Self::extract_request(stream);
+        // println!("received request: {}", request.trim());
+        //
+        // let contents = get_datum().to_string();
+        // let ack = format!(
+        //     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}\r\n\r\n",
+        //     contents.len(),
+        //     contents
+        // );
+        //
+        // stream.write_all(ack.as_bytes()).unwrap();
     }
 }
 

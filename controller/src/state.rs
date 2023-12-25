@@ -95,9 +95,7 @@ impl State {
         })
     }
 
-    /// Connects to an address, sends the specified request, and returns the response, or an error
-    #[allow(dead_code)] // remove this ASAP
-    fn send_request(info: &ServiceInfo, request: &str) -> Result<String, String> {
+    fn send_command(info: &ServiceInfo, message: &str) -> TcpStream {
         let address = format!(
             "{}:{}",
             info.get_hostname().trim_end_matches('.'),
@@ -108,32 +106,11 @@ impl State {
 
         let mut stream = TcpStream::connect(address).unwrap();
 
-        println!("[send_request] sending request: {}", request);
+        println!("[send_request] sending message: {}", message);
 
-        stream.write_all(request.as_bytes()).unwrap();
+        stream.write_all(message.as_bytes()).unwrap();
 
-        let mut response = String::new();
-
-        match stream.read_to_string(&mut response) {
-            Err(_) => Err(String::from("unable to read stream")),
-            Ok(_) => Ok(response),
-        }
-    }
-
-    fn send_command(info: &ServiceInfo, request: &str) {
-        let address = format!(
-            "{}:{}",
-            info.get_hostname().trim_end_matches('.'),
-            info.get_port()
-        );
-
-        println!("[send_request] connecting to url {}", address);
-
-        let mut stream = TcpStream::connect(address).unwrap();
-
-        println!("[send_request] sending request: {}", request);
-
-        stream.write_all(request.as_bytes()).unwrap()
+        stream
     }
 
     /// Attempts to get the latest `Datum` from the `Sensor` with the specified `Id`.
@@ -141,9 +118,16 @@ impl State {
     pub fn read_sensor(info: &ServiceInfo) -> Result<Datum, String> {
         // send the minimum possible payload. We basically just want to ping the Sensor
         // see: https://stackoverflow.com/a/9734866
-        let request = "GET / HTTP/1.1\r\n\r\n";
+        let message = "GET / HTTP/1.1\r\n\r\n";
 
-        let response = State::send_request(info, request);
+        let mut stream = State::send_command(info, message);
+
+        let mut response = String::new();
+
+        let response = match stream.read_to_string(&mut response) {
+            Err(_) => Err(String::from("unable to read stream")),
+            Ok(_) => Ok(response),
+        };
 
         println!(
             "[read_sensor] response from url {}:{}\n----------\n{}\n----------",
@@ -159,28 +143,28 @@ impl State {
         })
     }
 
-    #[allow(dead_code)] // remove this ASAP
-    pub fn command_actuator(info: &ServiceInfo, command_json: String) -> std::io::Result<()> {
-        let content_type = "application/json";
-        let content_length = command_json.len();
-
-        // Place the serialized command inside the POST payload
-        let request = format!(
-            "POST HTTP/1.1\r\nContent-Type: {}\r\nContent-Length: {}\r\n\r\n{}",
-            content_type, content_length, command_json
-        );
-
-        let response = State::send_request(info, request.as_str());
-
-        println!(
-            "[command_actuator] response from url {}:{}\n----------\n{}\n----------",
-            info.get_hostname().trim_end_matches('.'),
-            info.get_port(),
-            response.unwrap_or(String::from("<error>"))
-        );
-
-        Ok(())
-    }
+    // #[allow(dead_code)] // remove this ASAP
+    // pub fn command_actuator(info: &ServiceInfo, command_json: String) -> std::io::Result<()> {
+    //     let content_type = "application/json";
+    //     let content_length = command_json.len();
+    //
+    //     // Place the serialized command inside the POST payload
+    //     let message = format!(
+    //         "POST HTTP/1.1\r\nContent-Type: {}\r\nContent-Length: {}\r\n\r\n{}",
+    //         content_type, content_length, command_json
+    //     );
+    //
+    //     let response = State::send_request(info, message.as_str());
+    //
+    //     println!(
+    //         "[command_actuator] response from url {}:{}\n----------\n{}\n----------",
+    //         info.get_hostname().trim_end_matches('.'),
+    //         info.get_port(),
+    //         response.unwrap_or(String::from("<error>"))
+    //     );
+    //
+    //     Ok(())
+    // }
 
     pub fn poll(&self) -> JoinHandle<()> {
         let sensors_mutex = Arc::clone(&self.sensors);
