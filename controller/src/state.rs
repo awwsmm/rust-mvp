@@ -2,23 +2,19 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
-use std::time::Duration;
 
 use mdns_sd::ServiceInfo;
 
 use datum::Datum;
 use device::id::Id;
-use device::model::Model;
-use device::DeviceHelper;
 
-use crate::assessor::{Assessor, DEFAULT_ASSESSOR};
+use crate::assessor::Assessor;
 
 pub struct State {
     // histories: HashMap<Id, SensorHistory>,
-    sensors: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
-    actuators: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
-    assessors: Arc<Mutex<HashMap<Id, Assessor>>>,
+    pub(crate) sensors: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    pub(crate) actuators: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    pub(crate) assessors: Arc<Mutex<HashMap<Id, Assessor>>>,
 }
 
 impl Default for State {
@@ -37,56 +33,7 @@ impl State {
         Self::default()
     }
 
-    fn is_supported(model: &Model) -> bool {
-        DEFAULT_ASSESSOR.contains_key(model.to_string().as_str())
-    }
-
-    pub fn discover_sensors(&self) -> JoinHandle<()> {
-        self.discover("_sensor")
-    }
-
-    pub fn discover_actuators(&self) -> JoinHandle<()> {
-        self.discover("_actuator")
-    }
-
-    /// Creates a new thread to continually discover devices on the network in the specified group.
-    fn discover(&self, group: &str) -> JoinHandle<()> {
-        let devices = match group {
-            "_sensor" => &self.sensors,
-            "_actuator" => &self.actuators,
-            _ => panic!("can only discover _sensor or _actuator, not {}", group),
-        };
-
-        DeviceHelper::discover(group, devices, Self::is_supported)
-
-        // let group = String::from(group);
-        //
-        // // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
-        // let devices_mutex = Arc::clone(devices);
-        //
-        // std::thread::spawn(move || {
-        //     let mdns = mdns_sd::ServiceDaemon::new().unwrap();
-        //     let service_type = format!("{}._tcp.local.", group);
-        //     let receiver = mdns.browse(service_type.as_str()).unwrap();
-        //
-        //     while let Ok(event) = receiver.recv() {
-        //         if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
-        //             let id = State::extract_id(&info);
-        //             let model = State::extract_model(&info);
-        //
-        //             if Self::is_supported(&model) {
-        //                 let devices_lock = devices_mutex.lock();
-        //                 let mut devices_guard = devices_lock.unwrap();
-        //                 devices_guard.insert(id, info);
-        //             } else {
-        //                 println!("Found unsupported model {}", model)
-        //             }
-        //         }
-        //     }
-        // })
-    }
-
-    fn send_command(info: &ServiceInfo, message: &str) -> TcpStream {
+    pub(crate) fn send_command(info: &ServiceInfo, message: &str) -> TcpStream {
         let address = format!(
             "{}:{}",
             info.get_hostname().trim_end_matches('.'),
@@ -156,85 +103,4 @@ impl State {
     //
     //     Ok(())
     // }
-
-    pub fn poll(&self) -> JoinHandle<()> {
-        let sensors_mutex = Arc::clone(&self.sensors);
-        let assessors = Arc::clone(&self.assessors);
-        let actuators_mutex = Arc::clone(&self.actuators);
-
-        std::thread::spawn(move || {
-            loop {
-                // We put the locks in this inner scope so the lock is released at the end of the scope
-                {
-                    let sensors_lock = sensors_mutex.lock();
-                    let sensors = sensors_lock.unwrap();
-
-                    println!("known sensors: {}", sensors.len());
-
-                    let actuators_lock = actuators_mutex.lock();
-                    let actuators = actuators_lock.unwrap();
-
-                    println!("known actuators: {}", actuators.len());
-
-                    let assessors = assessors.lock();
-                    let assessors = assessors.unwrap();
-
-                    for (id, service_info) in sensors.iter() {
-                        println!("[poll] polling sensor with id {}", id);
-                        let datum = Self::read_sensor(service_info);
-                        let model = DeviceHelper::extract_model(service_info);
-
-                        println!(
-                            "[poll] assessing datum received from sensor (model={})",
-                            model
-                        );
-
-                        println!(
-                            "available assessors: {:?}",
-                            assessors.keys().map(|each| each.to_string())
-                        );
-
-                        if let Some(assessor) = assessors
-                            .get(id)
-                            .or_else(|| DEFAULT_ASSESSOR.get(model.to_string().as_str()))
-                        {
-                            match datum {
-                                Err(msg) => println!("unable to read sensor due to: {}", msg),
-                                Ok(datum) => {
-                                    println!(
-                                        "[poll] successfully received datum from sensor: {}",
-                                        datum
-                                    );
-
-                                    let command = (assessor.assess)(&datum);
-
-                                    if let Some(command) = command {
-                                        let command_str = command.to_string();
-
-                                        println!(
-                                            "[poll] sending command [{}] to actuator",
-                                            command_str
-                                        );
-
-                                        if let Some(actuator) = actuators.get(id) {
-                                            Self::send_command(actuator, command_str.as_str());
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            println!(
-                                "[poll] assessor does not contain id: {}\nknown ids: {:?}",
-                                id,
-                                assessors.keys()
-                            )
-                        }
-                    }
-                }
-
-                // When the lock_result is released, we pause for a second, so self.sensors isn't continually locked
-                std::thread::sleep(Duration::from_secs(1))
-            }
-        })
-    }
 }

@@ -138,25 +138,21 @@ pub trait Device {
             }
         })
     }
-}
 
-pub struct DeviceHelper {}
-
-impl DeviceHelper {
-    pub fn extract_id(info: &ServiceInfo) -> Id {
+    fn extract_id(info: &ServiceInfo) -> Id {
         let id = info.get_property("id").unwrap().to_string();
         let id = id.trim_start_matches("id=");
         Id::new(id)
     }
 
-    pub fn extract_model(info: &ServiceInfo) -> Model {
+    fn extract_model(info: &ServiceInfo) -> Model {
         let model = info.get_property("model").unwrap().to_string();
         let model = model.trim_start_matches("model=");
         Model::parse(model).unwrap()
     }
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
-    pub fn discover(
+    fn discover(
         group: &str,
         devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>,
         is_supported: fn(&Model) -> bool,
