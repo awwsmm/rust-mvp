@@ -6,7 +6,11 @@ use std::sync::Mutex;
 use rand::{thread_rng, Rng};
 
 use datum::{Datum, DatumUnit, DatumValueType};
+use device::handler::Handler;
 use device::id::Id;
+use device::model::Model;
+use device::name::Name;
+use device::Device;
 
 use crate::generator::DatumGenerator;
 
@@ -15,18 +19,48 @@ mod generator;
 /// A test-only example environment which produces data detected by `Sensor`s.
 ///
 /// The `Environment` can be mutated by `Actuator`s.
-#[derive(Default)] // gives us an "empty" Environment with Environment::default()
 struct Environment {
+    name: Name,
+    model: Model,
+    id: Id,
     #[allow(dead_code)] // remove this ASAP
     attributes: Mutex<HashMap<Id, DatumGenerator>>,
+}
+
+impl Device for Environment {
+    fn get_name(&self) -> &Name {
+        &self.name
+    }
+
+    fn get_model(&self) -> &Model {
+        &self.model
+    }
+
+    fn get_id(&self) -> &Id {
+        &self.id
+    }
+
+    // TODO Environment should respond to HTTP requests from Actuators and Sensors.
+    fn get_handler(&self) -> Handler {
+        Handler::ignore()
+    }
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        Self {
+            name: Name::new("environment"),
+            model: Model::Environment,
+            id: Id::new("environment"),
+            attributes: Mutex::new(HashMap::new()),
+        }
+    }
 }
 
 impl Environment {
     #[allow(dead_code)] // remove this ASAP
     fn new() -> Environment {
-        Environment {
-            attributes: Mutex::new(HashMap::new()),
-        }
+        Environment::default()
     }
 
     #[allow(dead_code)] // remove this ASAP
@@ -201,8 +235,7 @@ mod env_tests {
         let mut environment = Environment::new();
 
         fn contains_datum(response: String) -> bool {
-            let datum_regex =
-                Regex::new(r"Datum \{ value: .*, unit: .*, timestamp: .* \}").unwrap();
+            let datum_regex = Regex::new(r"Datum \{ value: .*, unit: .*, timestamp: .* }").unwrap();
             datum_regex.is_match(&response)
         }
 
