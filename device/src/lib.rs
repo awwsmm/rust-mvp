@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 use std::net::{IpAddr, TcpListener, TcpStream};
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
 use mdns_sd::ServiceInfo;
@@ -134,6 +135,55 @@ pub trait Device {
             for stream in listener.incoming() {
                 let mut stream = stream.unwrap();
                 (handler.handle)(&mut stream);
+            }
+        })
+    }
+}
+
+pub struct DeviceHelper {}
+
+impl DeviceHelper {
+    pub fn extract_id(info: &ServiceInfo) -> Id {
+        let id = info.get_property("id").unwrap().to_string();
+        let id = id.trim_start_matches("id=");
+        Id::new(id)
+    }
+
+    pub fn extract_model(info: &ServiceInfo) -> Model {
+        let model = info.get_property("model").unwrap().to_string();
+        let model = model.trim_start_matches("model=");
+        Model::parse(model).unwrap()
+    }
+
+    /// Creates a new thread to continually discover `Device`s on the network in the specified group.
+    pub fn discover(
+        group: &str,
+        devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+        is_supported: fn(&Model) -> bool,
+    ) -> JoinHandle<()> {
+        let group = String::from(group);
+
+        // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
+        let devices_mutex = Arc::clone(devices);
+
+        std::thread::spawn(move || {
+            let mdns = mdns_sd::ServiceDaemon::new().unwrap();
+            let service_type = format!("{}._tcp.local.", group);
+            let receiver = mdns.browse(service_type.as_str()).unwrap();
+
+            while let Ok(event) = receiver.recv() {
+                if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
+                    let id = Self::extract_id(&info);
+                    let model = Self::extract_model(&info);
+
+                    if is_supported(&model) {
+                        let devices_lock = devices_mutex.lock();
+                        let mut devices_guard = devices_lock.unwrap();
+                        devices_guard.insert(id, info);
+                    } else {
+                        println!("Found unsupported model {}", model)
+                    }
+                }
             }
         })
     }

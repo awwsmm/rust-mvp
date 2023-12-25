@@ -10,6 +10,7 @@ use mdns_sd::ServiceInfo;
 use datum::Datum;
 use device::id::Id;
 use device::model::Model;
+use device::DeviceHelper;
 
 use crate::assessor::{Assessor, DEFAULT_ASSESSOR};
 
@@ -40,18 +41,6 @@ impl State {
         DEFAULT_ASSESSOR.contains_key(model.to_string().as_str())
     }
 
-    fn extract_id(info: &ServiceInfo) -> Id {
-        let id = info.get_property("id").unwrap().to_string();
-        let id = id.trim_start_matches("id=");
-        Id::new(id)
-    }
-
-    fn extract_model(info: &ServiceInfo) -> Model {
-        let model = info.get_property("model").unwrap().to_string();
-        let model = model.trim_start_matches("model=");
-        Model::parse(model).unwrap()
-    }
-
     pub fn discover_sensors(&self) -> JoinHandle<()> {
         self.discover("_sensor")
     }
@@ -68,31 +57,33 @@ impl State {
             _ => panic!("can only discover _sensor or _actuator, not {}", group),
         };
 
-        let group = String::from(group);
+        DeviceHelper::discover(group, devices, Self::is_supported)
 
-        // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
-        let devices_mutex = Arc::clone(devices);
-
-        std::thread::spawn(move || {
-            let mdns = mdns_sd::ServiceDaemon::new().unwrap();
-            let service_type = format!("{}._tcp.local.", group);
-            let receiver = mdns.browse(service_type.as_str()).unwrap();
-
-            while let Ok(event) = receiver.recv() {
-                if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
-                    let id = State::extract_id(&info);
-                    let model = State::extract_model(&info);
-
-                    if Self::is_supported(&model) {
-                        let devices_lock = devices_mutex.lock();
-                        let mut devices_guard = devices_lock.unwrap();
-                        devices_guard.insert(id, info);
-                    } else {
-                        println!("Found unsupported model {}", model)
-                    }
-                }
-            }
-        })
+        // let group = String::from(group);
+        //
+        // // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
+        // let devices_mutex = Arc::clone(devices);
+        //
+        // std::thread::spawn(move || {
+        //     let mdns = mdns_sd::ServiceDaemon::new().unwrap();
+        //     let service_type = format!("{}._tcp.local.", group);
+        //     let receiver = mdns.browse(service_type.as_str()).unwrap();
+        //
+        //     while let Ok(event) = receiver.recv() {
+        //         if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
+        //             let id = State::extract_id(&info);
+        //             let model = State::extract_model(&info);
+        //
+        //             if Self::is_supported(&model) {
+        //                 let devices_lock = devices_mutex.lock();
+        //                 let mut devices_guard = devices_lock.unwrap();
+        //                 devices_guard.insert(id, info);
+        //             } else {
+        //                 println!("Found unsupported model {}", model)
+        //             }
+        //         }
+        //     }
+        // })
     }
 
     fn send_command(info: &ServiceInfo, message: &str) -> TcpStream {
@@ -191,7 +182,7 @@ impl State {
                     for (id, service_info) in sensors.iter() {
                         println!("[poll] polling sensor with id {}", id);
                         let datum = Self::read_sensor(service_info);
-                        let model = Self::extract_model(service_info);
+                        let model = DeviceHelper::extract_model(service_info);
 
                         println!(
                             "[poll] assessing datum received from sensor (model={})",
