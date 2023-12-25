@@ -5,7 +5,6 @@ use device::model::Model;
 use device::name::Name;
 use device::Device;
 use sensor::Sensor;
-use std::net::TcpStream;
 
 pub struct TemperatureSensor {
     id: Id,
@@ -26,9 +25,8 @@ impl Device for TemperatureSensor {
         &self.id
     }
 
-    fn get_handler() -> Handler {
-        let handler: for<'a> fn(&'a mut TcpStream) = |stream| Self::handle(stream, Self::get_datum);
-        Handler::new(handler)
+    fn get_handler(&self) -> Handler {
+        Self::default_handler()
     }
 }
 

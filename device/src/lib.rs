@@ -29,6 +29,9 @@ pub trait Device {
     /// Returns the unique ID of this `Device`.
     fn get_id(&self) -> &Id;
 
+    /// Returns the helper which defines how to handle HTTP requests.
+    fn get_handler(&self) -> Handler;
+
     /// Registers this `Device` with mDNS in the specified group.
     fn register(&self, ip: IpAddr, port: u16, group: &str) {
         let mdns = mdns_sd::ServiceDaemon::new().unwrap();
@@ -64,14 +67,6 @@ pub trait Device {
         println!("Creating new device '{}' at {}", name, address);
 
         TcpListener::bind(address).unwrap()
-    }
-
-    fn get_handler() -> Handler;
-
-    fn extract_request(stream: &TcpStream) -> String {
-        let mut message = String::new();
-        BufReader::new(stream).read_line(&mut message).unwrap();
-        message
     }
 
     /// Reads a message from a `TcpStream` and parses it into the message line, headers, and body.
@@ -129,7 +124,7 @@ pub trait Device {
     fn run(&self, ip: IpAddr, port: u16, group: &str) -> JoinHandle<()> {
         self.register(ip, port, group);
         let listener = self.bind(ip, port);
-        let handler = Self::get_handler();
+        let handler = self.get_handler();
 
         std::thread::spawn(move || {
             for stream in listener.incoming() {

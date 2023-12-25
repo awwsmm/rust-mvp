@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::io::Write;
-use std::net::TcpStream;
 
 use datum::Datum;
+use device::handler::Handler;
 use device::message::Message;
 use device::Device;
 
@@ -15,17 +15,22 @@ pub trait Sensor: Device {
     /// In our example MVP, this queries the `Environment` for data.
     fn get_datum() -> Datum;
 
-    /// Responds to any request to this `Sensor` by responding with the latest `Datum`.
-    fn handle(stream: &mut TcpStream, get_datum: fn() -> Datum) {
-        if let Ok(message) = Self::parse_http_request(stream) {
-            println!(
-                "[Sensor::handle] received request: {}",
-                message.request_line
-            );
-            let contents = get_datum().to_string();
-            let ack = Message::respond_ok_with_body(HashMap::new(), contents.as_str()).to_string();
-            stream.write_all(ack.as_bytes()).unwrap();
-        }
+    /// By default, a `Sensor` responds to any request with the latest `Datum`.
+    fn default_handler() -> Handler {
+        Handler::new(|stream| {
+            if let Ok(message) = Self::parse_http_request(stream) {
+                println!("[Sensor] received\n----------\n{}\n----------", message);
+
+                let contents = Self::get_datum().to_string();
+                let message = Message::respond_ok_with_body(HashMap::new(), contents.as_str());
+
+                stream.write_all(message.to_string().as_bytes()).unwrap();
+            }
+        })
+    }
+
+    fn get_handler(&self) -> Handler {
+        Self::default_handler()
     }
 }
 
@@ -58,8 +63,8 @@ mod sensor_tests {
             &self.id
         }
 
-        fn get_handler() -> Handler {
-            Handler::new(|_| ())
+        fn get_handler(&self) -> Handler {
+            Handler::ignore()
         }
     }
 

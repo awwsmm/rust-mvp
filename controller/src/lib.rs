@@ -42,8 +42,9 @@ impl Device for Controller {
         &self.id
     }
 
-    fn get_handler() -> Handler {
-        Handler::new(|_| ())
+    // TODO Controller should respond to HTTP requests from the web app by sending historic data.
+    fn get_handler(&self) -> Handler {
+        Handler::ignore()
     }
 }
 
