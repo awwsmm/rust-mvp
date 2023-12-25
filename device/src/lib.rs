@@ -121,7 +121,7 @@ pub trait Device {
 
     /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually
     /// listen for incoming `TcpStream`s and handles them appropriately.
-    fn run(&self, ip: IpAddr, port: u16, group: &str) -> JoinHandle<()> {
+    fn respond(&self, ip: IpAddr, port: u16, group: &str) -> JoinHandle<()> {
         self.register(ip, port, group);
         let listener = self.bind(ip, port);
         let handler = self.get_handler();
@@ -134,24 +134,18 @@ pub trait Device {
         })
     }
 
-    fn extract_id(info: &ServiceInfo) -> Id {
-        let id = info.get_property("id").unwrap().to_string();
-        let id = id.trim_start_matches("id=");
-        Id::new(id)
+    fn extract_id(info: &ServiceInfo) -> Option<Id> {
+        let id = info.get_property("id").map(|p| p.to_string());
+        id.map(|i| Id::new(i.trim_start_matches("id=")))
     }
 
-    fn extract_model(info: &ServiceInfo) -> Model {
-        let model = info.get_property("model").unwrap().to_string();
-        let model = model.trim_start_matches("model=");
-        Model::parse(model).unwrap()
+    fn extract_model(info: &ServiceInfo) -> Option<Result<Model, String>> {
+        let model = info.get_property("model").map(|p| p.to_string());
+        model.map(|m| Model::parse(m.trim_start_matches("model=")))
     }
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
-    fn discover(
-        group: &str,
-        devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>,
-        is_supported: fn(&Model) -> bool,
-    ) -> JoinHandle<()> {
+    fn discover(group: &str, devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>) -> JoinHandle<()> {
         let group = String::from(group);
 
         // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
@@ -165,15 +159,9 @@ pub trait Device {
             while let Ok(event) = receiver.recv() {
                 if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
                     let id = Self::extract_id(&info);
-                    let model = Self::extract_model(&info);
-
-                    if is_supported(&model) {
-                        let devices_lock = devices_mutex.lock();
-                        let mut devices_guard = devices_lock.unwrap();
-                        devices_guard.insert(id, info);
-                    } else {
-                        println!("Found unsupported model {}", model)
-                    }
+                    let devices_lock = devices_mutex.lock();
+                    let mut devices_guard = devices_lock.unwrap();
+                    id.map(|i| devices_guard.insert(i, info));
                 }
             }
         })

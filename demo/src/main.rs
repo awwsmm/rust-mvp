@@ -27,7 +27,7 @@ fn main() {
 
     let sensor = TemperatureSensor::new(id.clone(), model, name.clone());
 
-    sensor.run(ip, sensor_port, "_sensor");
+    sensor.respond(ip, sensor_port, "_sensor");
 
     // ---------- here is the actuator ----------
 
@@ -35,7 +35,7 @@ fn main() {
 
     let actuator = TemperatureActuator::new(id, model, name);
 
-    actuator.run(ip, actuator_port, "_actuator");
+    actuator.respond(ip, actuator_port, "_actuator");
 
     // --------------------------------------------------------------------------------
     // spin up the controller

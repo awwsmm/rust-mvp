@@ -134,33 +134,7 @@ impl Controller {
             _ => panic!("can only discover _sensor or _actuator, not {}", group),
         };
 
-        <Self as Device>::discover(group, devices, Self::is_supported)
-
-        // let group = String::from(group);
-        //
-        // // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
-        // let devices_mutex = Arc::clone(devices);
-        //
-        // std::thread::spawn(move || {
-        //     let mdns = mdns_sd::ServiceDaemon::new().unwrap();
-        //     let service_type = format!("{}._tcp.local.", group);
-        //     let receiver = mdns.browse(service_type.as_str()).unwrap();
-        //
-        //     while let Ok(event) = receiver.recv() {
-        //         if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
-        //             let id = State::extract_id(&info);
-        //             let model = State::extract_model(&info);
-        //
-        //             if Self::is_supported(&model) {
-        //                 let devices_lock = devices_mutex.lock();
-        //                 let mut devices_guard = devices_lock.unwrap();
-        //                 devices_guard.insert(id, info);
-        //             } else {
-        //                 println!("Found unsupported model {}", model)
-        //             }
-        //         }
-        //     }
-        // })
+        <Self as Device>::discover(group, devices)
     }
 
     pub fn poll(&self) -> JoinHandle<()> {
@@ -186,54 +160,66 @@ impl Controller {
                     let assessors = assessors.unwrap();
 
                     for (id, service_info) in sensors.iter() {
-                        println!("[poll] polling sensor with id {}", id);
-                        let datum = State::read_sensor(service_info);
-                        let model = <Self as Device>::extract_model(service_info);
+                        if let Some(Ok(model)) = Self::extract_model(service_info) {
+                            if Self::is_supported(&model) {
+                                println!("[poll] polling sensor with id {}", id);
+                                let datum = State::read_sensor(service_info);
 
-                        println!(
-                            "[poll] assessing datum received from sensor (model={})",
-                            model
-                        );
+                                println!(
+                                    "[poll] assessing datum received from sensor (model={})",
+                                    model
+                                );
 
-                        println!(
-                            "available assessors: {:?}",
-                            assessors.keys().map(|each| each.to_string())
-                        );
+                                println!(
+                                    "available assessors: {:?}",
+                                    assessors.keys().map(|each| each.to_string())
+                                );
 
-                        if let Some(assessor) = assessors
-                            .get(id)
-                            .or_else(|| DEFAULT_ASSESSOR.get(model.to_string().as_str()))
-                        {
-                            match datum {
-                                Err(msg) => println!("unable to read sensor due to: {}", msg),
-                                Ok(datum) => {
-                                    println!(
-                                        "[poll] successfully received datum from sensor: {}",
-                                        datum
-                                    );
+                                if let Some(assessor) = assessors
+                                    .get(id)
+                                    .or_else(|| DEFAULT_ASSESSOR.get(model.to_string().as_str()))
+                                {
+                                    match datum {
+                                        Err(msg) => {
+                                            println!("unable to read sensor due to: {}", msg)
+                                        }
+                                        Ok(datum) => {
+                                            println!(
+                                                "[poll] successfully received datum from sensor: {}",
+                                                datum
+                                            );
 
-                                    let command = (assessor.assess)(&datum);
+                                            let command = (assessor.assess)(&datum);
 
-                                    if let Some(command) = command {
-                                        let command_str = command.to_string();
+                                            if let Some(command) = command {
+                                                let command_str = command.to_string();
 
-                                        println!(
-                                            "[poll] sending command [{}] to actuator",
-                                            command_str
-                                        );
+                                                println!(
+                                                    "[poll] sending command [{}] to actuator",
+                                                    command_str
+                                                );
 
-                                        if let Some(actuator) = actuators.get(id) {
-                                            State::send_command(actuator, command_str.as_str());
+                                                if let Some(actuator) = actuators.get(id) {
+                                                    State::send_command(
+                                                        actuator,
+                                                        command_str.as_str(),
+                                                    );
+                                                }
+                                            }
                                         }
                                     }
+                                } else {
+                                    println!(
+                                        "[poll] assessor does not contain id: {}\nknown ids: {:?}",
+                                        id,
+                                        assessors.keys()
+                                    )
                                 }
+                            } else {
+                                println!("[poll] unsupported Model: {}", model)
                             }
                         } else {
-                            println!(
-                                "[poll] assessor does not contain id: {}\nknown ids: {:?}",
-                                id,
-                                assessors.keys()
-                            )
+                            println!("[poll] could not find property 'model' in ServiceInfo")
                         }
                     }
                 }
