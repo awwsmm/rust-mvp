@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -65,7 +66,10 @@ impl Controller {
     }
 
     /// Starts the discovery process as well as polling sensors
-    pub fn start(&mut self) {
+    pub fn start(&mut self, ip: IpAddr, port: u16) {
+        // spawn a thread to respond to incoming HTTP requests
+        self.respond(ip, port, "_controller");
+
         // spawn a thread to look for sensors on the network continually
         self.discover("_sensor");
 
@@ -134,7 +138,7 @@ impl Controller {
             _ => panic!("can only discover _sensor or _actuator, not {}", group),
         };
 
-        <Self as Device>::discover(group, devices)
+        Device::discover(self, group, devices)
     }
 
     pub fn poll(&self) -> JoinHandle<()> {

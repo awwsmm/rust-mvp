@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use actuator_temperature::TemperatureActuator;
@@ -35,11 +36,17 @@ fn main() {
 
     let actuator = TemperatureActuator::new(id, model, name);
 
-    actuator.respond(ip, actuator_port, "_actuator");
+    let mut targets = HashMap::new();
+
+    targets.insert("_controller".into(), &actuator.env);
+
+    actuator.run(ip, actuator_port, "_actuator", targets);
 
     // --------------------------------------------------------------------------------
     // spin up the controller
     // --------------------------------------------------------------------------------
 
-    Controller::new().start();
+    let controller_port = 6565;
+
+    Controller::new().start(ip, controller_port);
 }

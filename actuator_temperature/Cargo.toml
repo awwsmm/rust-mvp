@@ -9,3 +9,5 @@ edition = "2021"
 datum = { path = "../datum" }
 device = { path = "../device" }
 actuator = { path = "../actuator" }
+
+mdns-sd = "0.10.1"

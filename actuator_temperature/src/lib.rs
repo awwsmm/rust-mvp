@@ -4,6 +4,9 @@ use device::id::Id;
 use device::model::Model;
 use device::name::Name;
 use device::Device;
+use mdns_sd::ServiceInfo;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 pub mod command;
 
@@ -11,6 +14,7 @@ pub struct TemperatureActuator {
     id: Id,
     model: Model,
     name: Name,
+    pub env: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
 }
 
 impl Device for TemperatureActuator {
@@ -43,6 +47,11 @@ impl Actuator for TemperatureActuator {
 
 impl TemperatureActuator {
     pub fn new(id: Id, model: Model, name: Name) -> TemperatureActuator {
-        TemperatureActuator { id, model, name }
+        TemperatureActuator {
+            id,
+            model,
+            name,
+            env: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 }

@@ -134,6 +134,20 @@ pub trait Device {
         })
     }
 
+    /// Configures this `Device` to `respond` to incoming requests and discover `targets` for outgoing requests.
+    fn run(
+        &self,
+        ip: IpAddr,
+        port: u16,
+        group: &str,
+        targets: HashMap<String, &Arc<Mutex<HashMap<Id, ServiceInfo>>>>,
+    ) -> JoinHandle<()> {
+        for (group, devices) in targets.iter() {
+            self.discover(group, devices);
+        }
+        self.respond(ip, port, group)
+    }
+
     fn extract_id(info: &ServiceInfo) -> Option<Id> {
         let id = info.get_property("id").map(|p| p.to_string());
         id.map(|i| Id::new(i.trim_start_matches("id=")))
@@ -145,11 +159,17 @@ pub trait Device {
     }
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
-    fn discover(group: &str, devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>) -> JoinHandle<()> {
+    fn discover(
+        &self,
+        group: &str,
+        devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    ) -> JoinHandle<()> {
         let group = String::from(group);
 
         // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
         let devices_mutex = Arc::clone(devices);
+
+        let name = self.get_name().clone();
 
         std::thread::spawn(move || {
             let mdns = mdns_sd::ServiceDaemon::new().unwrap();
@@ -161,6 +181,13 @@ pub trait Device {
                     let id = Self::extract_id(&info);
                     let devices_lock = devices_mutex.lock();
                     let mut devices_guard = devices_lock.unwrap();
+
+                    println!(
+                        "[Device::discover] {} discovered {}",
+                        name,
+                        info.get_fullname()
+                    );
+
                     id.map(|i| devices_guard.insert(i, info));
                 }
             }
