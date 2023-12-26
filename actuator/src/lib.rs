@@ -25,6 +25,10 @@ pub trait Actuator: Device {
     fn get_handler(&self) -> Handler {
         Self::default_handler()
     }
+
+    fn get_group() -> String {
+        String::from("_actuator")
+    }
 }
 
 pub trait Command: Display {}

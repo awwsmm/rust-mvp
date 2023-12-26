@@ -1,18 +1,20 @@
+use std::collections::HashMap;
+use std::net::IpAddr;
+use std::sync::{Arc, Mutex};
+
+use mdns_sd::ServiceInfo;
+
 use actuator::Actuator;
 use device::handler::Handler;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
 use device::Device;
-use mdns_sd::ServiceInfo;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 pub mod command;
 
 pub struct TemperatureActuator {
     id: Id,
-    model: Model,
     name: Name,
     pub env: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
 }
@@ -22,12 +24,16 @@ impl Device for TemperatureActuator {
         &self.name
     }
 
-    fn get_model(&self) -> &Model {
-        &self.model
-    }
-
     fn get_id(&self) -> &Id {
         &self.id
+    }
+
+    fn get_model() -> Model {
+        Model::Thermo5000
+    }
+
+    fn get_group() -> String {
+        <Self as Actuator>::get_group()
     }
 
     fn get_handler(&self) -> Handler {
@@ -35,23 +41,23 @@ impl Device for TemperatureActuator {
     }
 }
 
-impl Actuator for TemperatureActuator {
-    // fn act(&self, _id: Id, command: String) {
-    //     let command_is_valid = Command::parse(command.as_str()).is_ok();
-    //
-    //     if command_is_valid {
-    //         todo!() // send to Environment
-    //     }
-    // }
-}
+impl Actuator for TemperatureActuator {}
 
 impl TemperatureActuator {
-    pub fn new(id: Id, model: Model, name: Name) -> TemperatureActuator {
+    pub fn new(id: Id, name: Name) -> TemperatureActuator {
         TemperatureActuator {
             id,
-            model,
             name,
             env: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    pub fn start(ip: IpAddr, port: u16, id: Id, name: Name) {
+        let device = Self::new(id, name);
+
+        let mut targets = HashMap::new();
+        targets.insert("_controller".into(), &device.env);
+
+        device.run(ip, port, "_actuator", targets);
     }
 }

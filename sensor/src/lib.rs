@@ -32,6 +32,10 @@ pub trait Sensor: Device {
     fn get_handler(&self) -> Handler {
         Self::default_handler()
     }
+
+    fn get_group() -> String {
+        String::from("_sensor")
+    }
 }
 
 #[cfg(test)]
@@ -47,7 +51,6 @@ mod sensor_tests {
     struct Thermometer {
         id: Id,
         name: Name,
-        model: Model,
     }
 
     impl Device for Thermometer {
@@ -55,12 +58,16 @@ mod sensor_tests {
             &self.name
         }
 
-        fn get_model(&self) -> &Model {
-            &self.model
-        }
-
         fn get_id(&self) -> &Id {
             &self.id
+        }
+
+        fn get_model() -> Model {
+            Model::Unsupported
+        }
+
+        fn get_group() -> String {
+            String::from("_test")
         }
 
         fn get_handler(&self) -> Handler {

@@ -517,6 +517,7 @@ version = "0.1.0"
 dependencies = [
  "datum",
  "device",
+ "mdns-sd",
  "sensor",
 ]
 

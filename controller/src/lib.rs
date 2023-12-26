@@ -25,7 +25,6 @@ mod state;
 /// in memory.
 pub struct Controller {
     name: Name,
-    model: Model,
     id: Id,
     state: State,
 }
@@ -35,12 +34,16 @@ impl Device for Controller {
         &self.name
     }
 
-    fn get_model(&self) -> &Model {
-        &self.model
-    }
-
     fn get_id(&self) -> &Id {
         &self.id
+    }
+
+    fn get_model() -> Model {
+        Model::Controller
+    }
+
+    fn get_group() -> String {
+        String::from("_controller")
     }
 
     // TODO Controller should respond to HTTP requests from the web app by sending historic data.
@@ -53,7 +56,6 @@ impl Default for Controller {
     fn default() -> Self {
         Self {
             name: Name::new("controller"),
-            model: Model::Controller,
             id: Id::new("controller"),
             state: State::new(),
         }
@@ -127,7 +129,7 @@ impl Controller {
     }
 
     fn is_supported(model: &Model) -> bool {
-        DEFAULT_ASSESSOR.contains_key(model.to_string().as_str())
+        DEFAULT_ASSESSOR.contains_key(model.id().as_str())
     }
 
     /// Creates a new thread to continually discover devices on the network in the specified group.
@@ -171,7 +173,7 @@ impl Controller {
 
                                 println!(
                                     "[poll] assessing datum received from sensor (model={})",
-                                    model
+                                    model.name()
                                 );
 
                                 println!(
@@ -181,7 +183,7 @@ impl Controller {
 
                                 if let Some(assessor) = assessors
                                     .get(id)
-                                    .or_else(|| DEFAULT_ASSESSOR.get(model.to_string().as_str()))
+                                    .or_else(|| DEFAULT_ASSESSOR.get(model.id().as_str()))
                                 {
                                     match datum {
                                         Err(msg) => {
@@ -220,7 +222,7 @@ impl Controller {
                                     )
                                 }
                             } else {
-                                println!("[poll] unsupported Model: {}", model)
+                                println!("[poll] unsupported Model: {}", model.name())
                             }
                         } else {
                             println!("[poll] could not find property 'model' in ServiceInfo")

@@ -1,3 +1,9 @@
+use std::collections::HashMap;
+use std::net::IpAddr;
+use std::sync::{Arc, Mutex};
+
+use mdns_sd::ServiceInfo;
+
 use datum::{Datum, DatumUnit};
 use device::handler::Handler;
 use device::id::Id;
@@ -8,8 +14,8 @@ use sensor::Sensor;
 
 pub struct TemperatureSensor {
     id: Id,
-    model: Model,
     name: Name,
+    pub env: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
 }
 
 impl Device for TemperatureSensor {
@@ -17,12 +23,16 @@ impl Device for TemperatureSensor {
         &self.name
     }
 
-    fn get_model(&self) -> &Model {
-        &self.model
-    }
-
     fn get_id(&self) -> &Id {
         &self.id
+    }
+
+    fn get_model() -> Model {
+        Model::Thermo5000
+    }
+
+    fn get_group() -> String {
+        <Self as Sensor>::get_group()
     }
 
     fn get_handler(&self) -> Handler {
@@ -38,7 +48,20 @@ impl Sensor for TemperatureSensor {
 }
 
 impl TemperatureSensor {
-    pub fn new(id: Id, model: Model, name: Name) -> TemperatureSensor {
-        TemperatureSensor { id, model, name }
+    pub fn new(id: Id, name: Name) -> TemperatureSensor {
+        TemperatureSensor {
+            id,
+            name,
+            env: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub fn start(ip: IpAddr, port: u16, id: Id, name: Name) {
+        let device = Self::new(id, name);
+
+        let mut targets = HashMap::new();
+        targets.insert("_controller".into(), &device.env);
+
+        device.run(ip, port, "_sensor", targets);
     }
 }

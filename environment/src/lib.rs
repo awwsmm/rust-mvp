@@ -21,7 +21,6 @@ mod generator;
 /// The `Environment` can be mutated by `Actuator`s.
 struct Environment {
     name: Name,
-    model: Model,
     id: Id,
     #[allow(dead_code)] // remove this ASAP
     attributes: Mutex<HashMap<Id, DatumGenerator>>,
@@ -32,12 +31,16 @@ impl Device for Environment {
         &self.name
     }
 
-    fn get_model(&self) -> &Model {
-        &self.model
-    }
-
     fn get_id(&self) -> &Id {
         &self.id
+    }
+
+    fn get_model() -> Model {
+        Model::Environment
+    }
+
+    fn get_group() -> String {
+        String::from("_environment")
     }
 
     // TODO Environment should respond to HTTP requests from Actuators and Sensors.
@@ -50,7 +53,6 @@ impl Default for Environment {
     fn default() -> Self {
         Self {
             name: Name::new("environment"),
-            model: Model::Environment,
             id: Id::new("environment"),
             attributes: Mutex::new(HashMap::new()),
         }

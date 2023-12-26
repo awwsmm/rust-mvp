@@ -23,11 +23,24 @@ pub trait Device {
     /// Returns the user-friendly name of this `Device`.
     fn get_name(&self) -> &Name;
 
-    /// Returns the model of this `Device`, which may or may not be supported by the `Controller`.
-    fn get_model(&self) -> &Model;
-
     /// Returns the unique ID of this `Device`.
     fn get_id(&self) -> &Id;
+
+    /// Returns the model of this `Device`, which may or may not be supported by the `Controller`.
+    fn get_model() -> Model;
+
+    /// Returns the mDNS group of this `Device`, i.e. "_sensor", "_actuator", etc.
+    fn get_group() -> String;
+
+    /// Returns the full mDNS name of this `Device` (e.g. "id._model._group._tcp.local.")
+    fn get_fullname(&self) -> String {
+        format!(
+            "{}.{}.{}._tcp.local.",
+            self.get_id(),
+            Self::get_model().id(),
+            Self::get_group()
+        )
+    }
 
     /// Returns the helper which defines how to handle HTTP requests.
     fn get_handler(&self) -> Handler;
@@ -36,18 +49,18 @@ pub trait Device {
     fn register(&self, ip: IpAddr, port: u16, group: &str) {
         let mdns = mdns_sd::ServiceDaemon::new().unwrap();
         let host = ip.clone().to_string();
-        let name = self.get_name();
+        let name = format!("{}.{}", self.get_id(), Self::get_model().id());
         let domain = format!("{}._tcp.local.", group);
 
         println!("Registering new device via mDNS at {}.{}", name, domain);
 
         let mut properties = HashMap::new();
         properties.insert(String::from("id"), self.get_id().to_string());
-        properties.insert(String::from("model"), self.get_model().to_string());
+        properties.insert(String::from("model"), Self::get_model().id());
 
         let my_service = ServiceInfo::new(
             domain.as_str(),
-            name.0.as_str(),
+            name.as_str(),
             host.as_str(),
             ip,
             port,
@@ -169,7 +182,7 @@ pub trait Device {
         // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
         let devices_mutex = Arc::clone(devices);
 
-        let name = self.get_name().clone();
+        let self_fullname = self.get_fullname().clone();
 
         std::thread::spawn(move || {
             let mdns = mdns_sd::ServiceDaemon::new().unwrap();
@@ -184,7 +197,7 @@ pub trait Device {
 
                     println!(
                         "[Device::discover] {} discovered {}",
-                        name,
+                        self_fullname,
                         info.get_fullname()
                     );
 

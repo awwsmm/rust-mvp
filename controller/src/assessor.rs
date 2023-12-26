@@ -11,7 +11,8 @@ pub struct Assessor {
 ///
 /// Can be overridden by the user.
 pub static DEFAULT_ASSESSOR: Map<&str, Assessor> = phf_map! {
-    "Thermo-5000" => Assessor { assess: |datum| {
+    // keys here should match Model ids defined in model.rs
+    "thermo5000" => Assessor { assess: |datum| {
 
         let t = datum.get_as_float().unwrap();
         assert_eq!(datum.unit, DatumUnit::DegreesC);
