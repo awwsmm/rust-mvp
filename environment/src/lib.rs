@@ -44,7 +44,19 @@ impl Device for Environment {
 
     // TODO Environment should respond to HTTP requests from Actuators and Sensors.
     fn get_handler(&self) -> Handler {
-        Handler::ignore()
+        Handler::new(|stream| {
+            if let Ok(message) = Self::parse_http_request(stream) {
+                println!(
+                    "[Environment] received\n----------\n{}\n----------",
+                    message
+                );
+
+                // let contents = Self::get_datum().to_string();
+                // let message = Message::respond_ok_with_body(HashMap::new(), contents.as_str());
+
+                // stream.write_all(message.to_string().as_bytes()).unwrap();
+            }
+        })
     }
 
     fn start(ip: IpAddr, port: u16, id: Id, name: Name) {

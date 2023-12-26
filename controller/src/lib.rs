@@ -177,7 +177,7 @@ impl Controller {
                 }
 
                 // When the lock_result is released, we pause for a second, so self.sensors isn't continually locked
-                std::thread::sleep(Duration::from_secs(1))
+                std::thread::sleep(Duration::from_secs(3))
             }
         })
     }
