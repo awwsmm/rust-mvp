@@ -45,6 +45,7 @@ mod sensor_tests {
     use device::id::Id;
     use device::model::Model;
     use device::name::Name;
+    use std::net::IpAddr;
 
     use super::*;
 
@@ -73,6 +74,8 @@ mod sensor_tests {
         fn get_handler(&self) -> Handler {
             Handler::ignore()
         }
+
+        fn start(_ip: IpAddr, _port: u16, _id: Id, _name: Name) {}
     }
 
     impl Sensor for Thermometer {

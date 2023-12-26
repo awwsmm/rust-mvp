@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -50,97 +51,42 @@ impl Device for Controller {
     fn get_handler(&self) -> Handler {
         Handler::ignore()
     }
+
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name) {
+        let device = Self::new(id, name);
+
+        let mut targets = HashMap::new();
+        targets.insert("_sensor".into(), &device.state.sensors);
+        targets.insert("_actuator".into(), &device.state.actuators);
+
+        device.run(ip, port, "_controller", targets);
+
+        Controller::poll(&device);
+    }
 }
 
 impl Default for Controller {
     fn default() -> Self {
-        Self {
-            name: Name::new("controller"),
-            id: Id::new("controller"),
-            state: State::new(),
-        }
+        Self::new(Id::new("controller"), Name::new("controller"))
     }
 }
 
 impl Controller {
-    pub fn new() -> Controller {
-        Controller::default()
+    pub fn new(id: Id, name: Name) -> Self {
+        Self {
+            name,
+            id,
+            state: State::new(),
+        }
     }
 
-    /// Starts the discovery process as well as polling sensors
-    pub fn start(&mut self, ip: IpAddr, port: u16) {
-        // spawn a thread to respond to incoming HTTP requests
-        self.respond(ip, port, "_controller");
-
-        // spawn a thread to look for sensors on the network continually
-        self.discover("_sensor");
-
-        // spawn a thread to look for actuators on the network continually
-        self.discover("_actuator");
-
-        // poll sensors for data in perpetuity, waiting 1s in between polls
-        self.poll();
-
-        // TODO I think we need two more loops
-        //      Loop 1 should be another state-internal loop, polling all known sensors for data and saving it in the histories
-        //      Loop 2 should be in this scope right here, and it should be the "control loop".
-        //
-        //      The "control loop" should
-        //        1. get the latest Datums for each sensor
-        //        2. determine if each sensor is outside of some user-defined range
-        //        3. if so, command the sensor's corresponding actuator to perform some command
-
-        // // Cycle through and poll the Sensors, if the return Datum is outside a defined range
-        // // send a command off to the Actuator
-        // let self_api_clone = Arc::clone(&self.state);
-        //
-        // // FIXME I think this loop below needs to happen inside the State, like the discover() loop
-        // std::thread::spawn(move || loop {
-        //
-        //     // acquire a mutex lock on the state
-        //     let mut ctrl = self_api_clone.lock().unwrap();
-        //
-        //     // loop over all known sensors
-        //     for (id, )
-        //
-        //
-        //
-        //     // Create a temp vec to hold the data history as there is a lock on the controller and
-        //     // we can't populate the history until the lock is released.
-        //     let mut data_history: Vec<(Id, SensorHistory)> = Vec::new();
-        //     {
-        //         let ctrl = self_api_clone.lock().unwrap();
-        //
-        //     }
-        //
-        //     // Once we have exited the scope where we acquired the data and send commands
-        //     // its safe to acquire lock on ctrl again and update its data history
-        //     let mut ctrl = self_api_clone.lock().unwrap();
-        //     for (id, history) in data_history {
-        //         ctrl.data.insert(id, history);
-        //     }
-        //     std::thread::sleep(Duration::from_secs(5));
-        // });
-        //
-        // Ok(())
-
-        // run() should loop continually
-        std::thread::sleep(Duration::MAX)
+    pub fn start_default(ip: IpAddr, port: u16) {
+        let device = Self::default();
+        <Self as Device>::start(ip, port, device.id, device.name);
     }
 
     fn is_supported(model: &Model) -> bool {
         DEFAULT_ASSESSOR.contains_key(model.id().as_str())
-    }
-
-    /// Creates a new thread to continually discover devices on the network in the specified group.
-    fn discover(&self, group: &str) -> JoinHandle<()> {
-        let devices = match group {
-            "_sensor" => &self.state.sensors,
-            "_actuator" => &self.state.actuators,
-            _ => panic!("can only discover _sensor or _actuator, not {}", group),
-        };
-
-        Device::discover(self, group, devices)
     }
 
     pub fn poll(&self) -> JoinHandle<()> {

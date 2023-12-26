@@ -151,6 +151,7 @@ dependencies = [
  "actuator_temperature",
  "controller",
  "device",
+ "environment",
  "local-ip-address",
  "sensor",
  "sensor_temperature",
@@ -177,6 +178,7 @@ dependencies = [
  "chrono",
  "datum",
  "device",
+ "mdns-sd",
  "rand",
  "regex",
 ]

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::IpAddr;
 use std::sync::Mutex;
 
 use rand::{thread_rng, Rng};
@@ -19,7 +18,7 @@ mod generator;
 /// A test-only example environment which produces data detected by `Sensor`s.
 ///
 /// The `Environment` can be mutated by `Actuator`s.
-struct Environment {
+pub struct Environment {
     name: Name,
     id: Id,
     #[allow(dead_code)] // remove this ASAP
@@ -47,22 +46,32 @@ impl Device for Environment {
     fn get_handler(&self) -> Handler {
         Handler::ignore()
     }
+
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name) {
+        let device = Self::new(id, name);
+        device.run(ip, port, "_environment", HashMap::new());
+    }
 }
 
 impl Default for Environment {
     fn default() -> Self {
-        Self {
-            name: Name::new("environment"),
-            id: Id::new("environment"),
-            attributes: Mutex::new(HashMap::new()),
-        }
+        Self::new(Id::new("environment"), Name::new("environment"))
     }
 }
 
 impl Environment {
+    pub fn new(id: Id, name: Name) -> Self {
+        Self {
+            name,
+            id,
+            attributes: Mutex::new(HashMap::new()),
+        }
+    }
+
     #[allow(dead_code)] // remove this ASAP
-    fn new() -> Environment {
-        Environment::default()
+    pub fn start_default(ip: IpAddr, port: u16) {
+        let device = Self::default();
+        <Self as Device>::start(ip, port, device.id, device.name);
     }
 
     #[allow(dead_code)] // remove this ASAP
@@ -105,109 +114,65 @@ impl Environment {
         }
     }
 
-    #[allow(dead_code)] // remove this ASAP
-    pub fn handle_request(&mut self, message: &str) -> String {
-        if message.starts_with("POST /set/") {
-            // if the Environment gets a command from an actuator with a Device::Id that it is not
-            // yet aware of, it should ignore it
+    // #[allow(dead_code)] // remove this ASAP
+    // pub fn handle_request(&mut self, message: &str) -> String {
+    //     if message.starts_with("POST /set/") {
+    //         // if the Environment gets a command from an actuator with a Device::Id that it is not
+    //         // yet aware of, it should ignore it
+    //
+    //         // Not complete, but this is the general idea
+    //         // Extract ID and command
+    //         let (id, command) = self.extract_command(message);
+    //         match self.execute_command(&id, &command) {
+    //             Some(datum) => format!("HTTP/1.1 200 OK\r\n\r\n{:?}", datum),
+    //             None => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
+    //         }
+    //     } else if message.starts_with("GET /get/") {
+    //         // if the Environment gets a message from a sensor with a Device::Id that it is not
+    //         // yet aware of, it should save the Id and pick from a random data generator
+    //
+    //         let parsed = Environment::parse_get_request(message);
+    //
+    //         if let Ok((id, value_type, unit)) = parsed {
+    //             let datum = self.get(&id, value_type, unit);
+    //             format!("HTTP/1.1 200 OK\r\n\r\n{:?}", datum)
+    //         } else {
+    //             let msg = parsed.unwrap_err();
+    //             format!("HTTP/1.1 400 Bad Request\r\n\r\n{}", msg)
+    //         }
+    //     } else {
+    //         "HTTP/1.1 404 Not Found\r\n\r\n".to_string()
+    //     }
+    // }
 
-            // Not complete, but this is the general idea
-            // Extract ID and command
-            let (id, command) = self.extract_command(message);
-            match self.execute_command(&id, &command) {
-                Some(datum) => format!("HTTP/1.1 200 OK\r\n\r\n{:?}", datum),
-                None => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
-            }
-        } else if message.starts_with("GET /get/") {
-            // if the Environment gets a message from a sensor with a Device::Id that it is not
-            // yet aware of, it should save the Id and pick from a random data generator
-
-            let parsed = Environment::parse_get_request(message);
-
-            if let Ok((id, value_type, unit)) = parsed {
-                let datum = self.get(&id, value_type, unit);
-                format!("HTTP/1.1 200 OK\r\n\r\n{:?}", datum)
-            } else {
-                let msg = parsed.unwrap_err();
-                format!("HTTP/1.1 400 Bad Request\r\n\r\n{}", msg)
-            }
-        } else {
-            "HTTP/1.1 404 Not Found\r\n\r\n".to_string()
-        }
-    }
-
-    #[allow(dead_code)] // remove this ASAP
-    fn start_server(&mut self) -> std::io::Result<()> {
-        let listener = TcpListener::bind("127.0.0.1:8080")?;
-
-        for stream in listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    self.handle_client(stream)?;
-                }
-                Err(e) => eprintln!("Failed to handle client: {}", e),
-            }
-        }
-        Ok(())
-    }
-
-    #[allow(dead_code)] // remove this ASAP
-    fn handle_client(&mut self, mut stream: TcpStream) -> std::io::Result<()> {
-        let mut message = Vec::new();
-        stream.read_to_end(&mut message).unwrap();
-
-        let message = std::str::from_utf8(&message)
-            .map(|s| s.trim())
-            .unwrap_or("Failed to read response");
-
-        let response = self.handle_request(message);
-
-        stream.write_all(response.as_bytes())?;
-        stream.flush()?;
-        Ok(())
-    }
-
-    #[allow(dead_code)] // remove this ASAP
-    fn extract_command(&self, _request: &str) -> (Id, String) {
-        todo!()
-    }
-
-    #[allow(dead_code)] // remove this ASAP
-    fn execute_command(&self, _id: &Id, _command: &str) -> Option<Datum> {
-        // TODO: Implement actual command execution logic
-        // Maybe the command should be an struct or enum with a type and a value?
-        todo!()
-    }
-
-    #[allow(dead_code)] // remove this ASAP
-    fn parse_get_request(message: &str) -> Result<(Id, DatumValueType, DatumUnit), String> {
-        // example message: "GET /get/test_id/float/°C"
-        let mut parts = message.split('/');
-
-        parts.next(); // throw out "GET"
-        parts.next(); // throw out "get"
-
-        match (parts.next(), parts.next(), parts.next()) {
-            (Some(id), Some(value_type), Some(unit)) => {
-                match (DatumValueType::parse(value_type), DatumUnit::parse(unit)) {
-                    (Ok(value_type), Ok(unit)) => Ok((Id::new(id), value_type, unit)),
-                    (Ok(_), Err(msg)) => Err(msg),
-                    (Err(msg), Ok(_)) => Err(msg),
-                    (Err(msg1), Err(msg2)) => Err(format!("{}\n{}", msg1, msg2)),
-                }
-            }
-            _ => Err(format!(
-                "Cannot split {} into /get/<sensor_id>/<type>/<unit>",
-                message
-            )),
-        }
-    }
+    // #[allow(dead_code)] // remove this ASAP
+    // fn parse_get_request(message: &str) -> Result<(Id, DatumValueType, DatumUnit), String> {
+    //     // example message: "GET /get/test_id/float/°C"
+    //     let mut parts = message.split('/');
+    //
+    //     parts.next(); // throw out "GET"
+    //     parts.next(); // throw out "get"
+    //
+    //     match (parts.next(), parts.next(), parts.next()) {
+    //         (Some(id), Some(value_type), Some(unit)) => {
+    //             match (DatumValueType::parse(value_type), DatumUnit::parse(unit)) {
+    //                 (Ok(value_type), Ok(unit)) => Ok((Id::new(id), value_type, unit)),
+    //                 (Ok(_), Err(msg)) => Err(msg),
+    //                 (Err(msg), Ok(_)) => Err(msg),
+    //                 (Err(msg1), Err(msg2)) => Err(format!("{}\n{}", msg1, msg2)),
+    //             }
+    //         }
+    //         _ => Err(format!(
+    //             "Cannot split {} into /get/<sensor_id>/<type>/<unit>",
+    //             message
+    //         )),
+    //     }
+    // }
 }
 
 #[cfg(test)]
 mod env_tests {
     use chrono::{DateTime, Utc};
-    use regex::Regex;
 
     use datum::{DatumUnit, DatumValue};
 
@@ -215,7 +180,7 @@ mod env_tests {
 
     #[test]
     fn test_set_and_get_datum() {
-        let mut environment = Environment::new();
+        let mut environment = Environment::default();
 
         let id = Id::new("test_id");
         let value_type = DatumValueType::Int;
@@ -230,31 +195,6 @@ mod env_tests {
 
         assert_eq!(datum.value, DatumValue::Int(42));
         assert_eq!(datum.unit, unit);
-    }
-
-    #[test]
-    fn test_handle_get_request() {
-        let mut environment = Environment::new();
-
-        fn contains_datum(response: String) -> bool {
-            let datum_regex = Regex::new(r"Datum \{ value: .*, unit: .*, timestamp: .* }").unwrap();
-            datum_regex.is_match(&response)
-        }
-
-        let get_request = "GET /get/test_id/float/°C";
-        let get_response = environment.handle_request(get_request);
-
-        println!("response: {}", get_response);
-
-        assert!(contains_datum(get_response));
-    }
-
-    #[test]
-    fn test_handle_get_request_undefined() {
-        let mut environment = Environment::new();
-        let undefined_request = "GET /undefined";
-        let undefined_response = environment.handle_request(undefined_request);
-        assert_eq!(undefined_response, "HTTP/1.1 404 Not Found\r\n\r\n");
     }
 
     #[test]

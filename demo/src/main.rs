@@ -1,9 +1,13 @@
+use std::time::Duration;
+
 use uuid::Uuid;
 
 use actuator_temperature::TemperatureActuator;
 use controller::Controller;
 use device::id::Id;
 use device::name::Name;
+use device::Device;
+use environment::Environment;
 use sensor_temperature::TemperatureSensor;
 
 fn main() {
@@ -31,5 +35,15 @@ fn main() {
     // --------------------------------------------------------------------------------
 
     let controller_port = 6565;
-    Controller::new().start(ip, controller_port);
+    Controller::start_default(ip, controller_port);
+
+    // --------------------------------------------------------------------------------
+    // spin up the controller
+    // --------------------------------------------------------------------------------
+
+    let environment_port = 5454;
+    Environment::start_default(ip, environment_port);
+
+    // demo should loop continually
+    std::thread::sleep(Duration::MAX)
 }

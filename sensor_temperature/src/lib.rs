@@ -38,6 +38,15 @@ impl Device for TemperatureSensor {
     fn get_handler(&self) -> Handler {
         Self::default_handler()
     }
+
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name) {
+        let device = Self::new(id, name);
+
+        let mut targets = HashMap::new();
+        targets.insert("_controller".into(), &device.env);
+
+        device.run(ip, port, "_sensor", targets);
+    }
 }
 
 impl Sensor for TemperatureSensor {
@@ -54,14 +63,5 @@ impl TemperatureSensor {
             name,
             env: Arc::new(Mutex::new(HashMap::new())),
         }
-    }
-
-    pub fn start(ip: IpAddr, port: u16, id: Id, name: Name) {
-        let device = Self::new(id, name);
-
-        let mut targets = HashMap::new();
-        targets.insert("_controller".into(), &device.env);
-
-        device.run(ip, port, "_sensor", targets);
     }
 }

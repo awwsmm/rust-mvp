@@ -9,5 +9,7 @@ edition = "2021"
 datum = { path = "../datum" }
 device = { path = "../device" }
 chrono = { version = "0.4.31", features = [] }
+
+mdns-sd = "0.10.1"
 rand = "0.8.5"
 regex = "1.10.2"

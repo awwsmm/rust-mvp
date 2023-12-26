@@ -206,4 +206,6 @@ pub trait Device {
             }
         })
     }
+
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name);
 }

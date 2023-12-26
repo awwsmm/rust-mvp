@@ -9,6 +9,7 @@ edition = "2021"
 actuator = { path = "../actuator" }
 controller = { path = "../controller" }
 device = { path = "../device" }
+environment = { path = "../environment" }
 sensor = { path = "../sensor" }
 sensor_temperature = { path = "../sensor_temperature" }
 actuator_temperature = { path = "../actuator_temperature" }

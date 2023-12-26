@@ -39,25 +39,25 @@ impl Device for TemperatureActuator {
     fn get_handler(&self) -> Handler {
         Self::default_handler()
     }
-}
 
-impl Actuator for TemperatureActuator {}
-
-impl TemperatureActuator {
-    pub fn new(id: Id, name: Name) -> TemperatureActuator {
-        TemperatureActuator {
-            id,
-            name,
-            env: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    pub fn start(ip: IpAddr, port: u16, id: Id, name: Name) {
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name) {
         let device = Self::new(id, name);
 
         let mut targets = HashMap::new();
         targets.insert("_controller".into(), &device.env);
 
         device.run(ip, port, "_actuator", targets);
+    }
+}
+
+impl Actuator for TemperatureActuator {}
+
+impl TemperatureActuator {
+    pub fn new(id: Id, name: Name) -> Self {
+        Self {
+            id,
+            name,
+            env: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 }
