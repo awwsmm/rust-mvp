@@ -6,11 +6,10 @@ use std::thread::JoinHandle;
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use datum::{Datum, DatumUnit};
-use device::handler::Handler;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
-use device::Device;
+use device::{Device, Thing};
 use sensor::Sensor;
 
 pub struct TemperatureSensor {
@@ -36,7 +35,7 @@ impl Device for TemperatureSensor {
         <Self as Sensor>::get_group()
     }
 
-    fn get_handler(&self) -> Handler {
+    fn get_handler(&self) -> Thing {
         Self::default_handler()
     }
 

@@ -6,11 +6,10 @@ use std::time::Duration;
 
 use mdns_sd::ServiceDaemon;
 
-use device::handler::Handler;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
-use device::Device;
+use device::{Device, Thing};
 
 use crate::assessor::DEFAULT_ASSESSOR;
 use crate::state::State;
@@ -50,8 +49,8 @@ impl Device for Controller {
     }
 
     // TODO Controller should respond to HTTP requests from the web app by sending historic data.
-    fn get_handler(&self) -> Handler {
-        Handler::ignore()
+    fn get_handler(&self) -> Thing {
+        Box::new(|_, _| ())
     }
 
     fn start(

@@ -6,17 +6,17 @@ use std::thread::JoinHandle;
 
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
-use crate::handler::Handler;
 use crate::id::Id;
 use crate::message::Message;
 use crate::model::Model;
 use crate::name::Name;
 
-pub mod handler;
 pub mod id;
 pub mod message;
 pub mod model;
 pub mod name;
+
+pub type Thing = Box<dyn Fn(&mut TcpStream, Arc<ServiceDaemon>)>;
 
 /// A `Device` exists on the network and is discoverable via mDNS.
 pub trait Device {
@@ -43,7 +43,7 @@ pub trait Device {
     }
 
     /// Returns the helper which defines how to handle HTTP requests.
-    fn get_handler(&self) -> Handler;
+    fn get_handler(&self) -> Thing;
 
     /// Registers this `Device` with mDNS in the specified group.
     fn register(&self, ip: IpAddr, port: u16, group: &str, mdns: Arc<ServiceDaemon>) {
@@ -141,7 +141,7 @@ pub trait Device {
 
         for stream in listener.incoming() {
             let mut stream = stream.unwrap();
-            (handler.handle)(&mut stream, Arc::clone(&mdns));
+            (*handler)(&mut stream, Arc::clone(&mdns));
         }
     }
 

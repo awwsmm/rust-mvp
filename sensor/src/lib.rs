@@ -2,9 +2,8 @@ use std::collections::HashMap;
 use std::io::Write;
 
 use datum::Datum;
-use device::handler::Handler;
 use device::message::Message;
-use device::Device;
+use device::{Device, Thing};
 
 /// A Sensor collects data from the Environment.
 pub trait Sensor: Device {
@@ -16,8 +15,8 @@ pub trait Sensor: Device {
     fn get_datum() -> Datum;
 
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
-    fn default_handler() -> Handler {
-        Handler::new(|stream, _mdns| {
+    fn default_handler() -> Thing {
+        Box::new(|stream, _mdns| {
             if let Ok(message) = Self::parse_http_request(stream) {
                 println!("[Sensor] received\n----------\n{}\n----------", message);
 
@@ -29,7 +28,7 @@ pub trait Sensor: Device {
         })
     }
 
-    fn get_handler(&self) -> Handler {
+    fn get_handler(&self) -> Thing {
         Self::default_handler()
     }
 
@@ -47,7 +46,6 @@ mod sensor_tests {
     use mdns_sd::ServiceDaemon;
 
     use datum::{DatumUnit, DatumValue};
-    use device::handler::Handler;
     use device::id::Id;
     use device::model::Model;
     use device::name::Name;
@@ -76,8 +74,8 @@ mod sensor_tests {
             String::from("_test")
         }
 
-        fn get_handler(&self) -> Handler {
-            Handler::ignore()
+        fn get_handler(&self) -> Thing {
+            Box::new(|_, _| ())
         }
 
         fn start(

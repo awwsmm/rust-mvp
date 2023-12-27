@@ -6,11 +6,10 @@ use std::thread::JoinHandle;
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use actuator::Actuator;
-use device::handler::Handler;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
-use device::Device;
+use device::{Device, Thing};
 
 pub mod command;
 
@@ -37,7 +36,7 @@ impl Device for TemperatureActuator {
         <Self as Actuator>::get_group()
     }
 
-    fn get_handler(&self) -> Handler {
+    fn get_handler(&self) -> Thing {
         Self::default_handler()
     }
 

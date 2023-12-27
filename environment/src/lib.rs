@@ -7,11 +7,10 @@ use mdns_sd::ServiceDaemon;
 use rand::{thread_rng, Rng};
 
 use datum::{Datum, DatumUnit, DatumValueType};
-use device::handler::Handler;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
-use device::Device;
+use device::{Device, Thing};
 
 use crate::generator::DatumGenerator;
 
@@ -45,8 +44,8 @@ impl Device for Environment {
     }
 
     // TODO Environment should respond to HTTP requests from Actuators and Sensors.
-    fn get_handler(&self) -> Handler {
-        Handler::new(|stream, _mdns| {
+    fn get_handler(&self) -> Thing {
+        Box::new(|stream, _mdns| {
             if let Ok(message) = Self::parse_http_request(stream) {
                 println!(
                     "[Environment] received\n----------\n{}\n----------",
