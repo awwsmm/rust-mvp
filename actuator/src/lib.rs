@@ -5,12 +5,12 @@ use std::net::TcpStream;
 use mdns_sd::ServiceEvent;
 
 use device::message::Message;
-use device::{Device, Thing};
+use device::{Device, Handler};
 
 /// An Actuator mutates the Environment.
 pub trait Actuator: Device {
     /// By default, an `Actuator` forwards all incoming requests to the `Environment`.
-    fn default_handler() -> Thing {
+    fn default_handler() -> Handler {
         Box::new(|stream, mdns| {
             if let Ok(message) = Self::parse_http_request(stream) {
                 // respond to Controller with OK
@@ -70,7 +70,7 @@ pub trait Actuator: Device {
         })
     }
 
-    fn get_handler(&self) -> Thing {
+    fn get_handler(&self) -> Handler {
         Self::default_handler()
     }
 

@@ -9,7 +9,7 @@ use datum::{Datum, DatumUnit};
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Thing};
+use device::{Device, Handler};
 use sensor::Sensor;
 
 pub struct TemperatureSensor {
@@ -35,7 +35,7 @@ impl Device for TemperatureSensor {
         <Self as Sensor>::get_group()
     }
 
-    fn get_handler(&self) -> Thing {
+    fn get_handler(&self) -> Handler {
         Self::default_handler()
     }
 

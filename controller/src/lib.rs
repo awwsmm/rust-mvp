@@ -9,7 +9,7 @@ use mdns_sd::ServiceDaemon;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Thing};
+use device::{Device, Handler};
 
 use crate::assessor::DEFAULT_ASSESSOR;
 use crate::state::State;
@@ -49,7 +49,7 @@ impl Device for Controller {
     }
 
     // TODO Controller should respond to HTTP requests from the web app by sending historic data.
-    fn get_handler(&self) -> Thing {
+    fn get_handler(&self) -> Handler {
         Box::new(|_, _| ())
     }
 

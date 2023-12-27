@@ -3,7 +3,7 @@ use std::io::Write;
 
 use datum::Datum;
 use device::message::Message;
-use device::{Device, Thing};
+use device::{Device, Handler};
 
 /// A Sensor collects data from the Environment.
 pub trait Sensor: Device {
@@ -15,7 +15,7 @@ pub trait Sensor: Device {
     fn get_datum() -> Datum;
 
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
-    fn default_handler() -> Thing {
+    fn default_handler() -> Handler {
         Box::new(|stream, _mdns| {
             if let Ok(message) = Self::parse_http_request(stream) {
                 println!("[Sensor] received\n----------\n{}\n----------", message);
@@ -28,7 +28,7 @@ pub trait Sensor: Device {
         })
     }
 
-    fn get_handler(&self) -> Thing {
+    fn get_handler(&self) -> Handler {
         Self::default_handler()
     }
 
@@ -74,7 +74,7 @@ mod sensor_tests {
             String::from("_test")
         }
 
-        fn get_handler(&self) -> Thing {
+        fn get_handler(&self) -> Handler {
             Box::new(|_, _| ())
         }
 

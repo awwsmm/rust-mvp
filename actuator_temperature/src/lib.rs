@@ -9,7 +9,7 @@ use actuator::Actuator;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Thing};
+use device::{Device, Handler};
 
 pub mod command;
 
@@ -36,7 +36,7 @@ impl Device for TemperatureActuator {
         <Self as Actuator>::get_group()
     }
 
-    fn get_handler(&self) -> Thing {
+    fn get_handler(&self) -> Handler {
         Self::default_handler()
     }
 

@@ -16,7 +16,7 @@ pub mod message;
 pub mod model;
 pub mod name;
 
-pub type Thing = Box<dyn Fn(&mut TcpStream, Arc<ServiceDaemon>)>;
+pub type Handler = Box<dyn Fn(&mut TcpStream, Arc<ServiceDaemon>)>;
 
 /// A `Device` exists on the network and is discoverable via mDNS.
 pub trait Device {
@@ -43,7 +43,7 @@ pub trait Device {
     }
 
     /// Returns the helper which defines how to handle HTTP requests.
-    fn get_handler(&self) -> Thing;
+    fn get_handler(&self) -> Handler;
 
     /// Registers this `Device` with mDNS in the specified group.
     fn register(&self, ip: IpAddr, port: u16, group: &str, mdns: Arc<ServiceDaemon>) {

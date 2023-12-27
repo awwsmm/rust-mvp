@@ -10,7 +10,7 @@ use datum::{Datum, DatumUnit, DatumValueType};
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Thing};
+use device::{Device, Handler};
 
 use crate::generator::DatumGenerator;
 
@@ -44,7 +44,7 @@ impl Device for Environment {
     }
 
     // TODO Environment should respond to HTTP requests from Actuators and Sensors.
-    fn get_handler(&self) -> Thing {
+    fn get_handler(&self) -> Handler {
         Box::new(|stream, _mdns| {
             if let Ok(message) = Self::parse_http_request(stream) {
                 println!(
