@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -27,9 +28,39 @@ fn main() {
     let id = Id::new(&Uuid::new_v4().to_string());
     let name = Name::new("My Thermo-5000");
 
+    let id_clone = id.clone();
+    let name_clone = name.clone();
+    let clone = Arc::clone(&mdns);
+
     // here is the Sensor
-    let sensor_port = 8787;
-    TemperatureSensor::start(ip, sensor_port, id.clone(), name.clone(), Arc::clone(&mdns));
+    std::thread::spawn(move || {
+        let mdns = clone;
+
+        let sensor_port = 8787;
+
+        let device = TemperatureSensor::new(id_clone.clone(), name_clone.clone());
+
+        let mut targets = HashMap::new();
+        targets.insert(String::from("_controller"), &device.env);
+
+        for (group, devices) in targets.iter() {
+            device.discover(group, devices, Arc::clone(&mdns));
+        }
+
+        device.register(ip, sensor_port, "_sensor", Arc::clone(&mdns));
+        let listener = device.bind(ip, sensor_port);
+        let handler = device.get_handler();
+
+        let clone = Arc::clone(&mdns);
+
+        let mdns = clone;
+        for stream in listener.incoming() {
+            let mut stream = stream.unwrap();
+            (handler.handle)(&mut stream, Arc::clone(&mdns));
+        }
+    });
+
+    // ----------
 
     // here is the Actuator
     let actuator_port = 9898;
