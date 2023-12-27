@@ -37,7 +37,7 @@ impl Device for TemperatureActuator {
     }
 
     fn get_handler(&self) -> Handler {
-        Self::default_handler()
+        self.default_handler()
     }
 
     fn start(
@@ -53,14 +53,23 @@ impl Device for TemperatureActuator {
             let device = Self::new(id, name);
 
             let mut targets = HashMap::new();
-            targets.insert("_controller".into(), &device.env);
+            targets.insert("_environment".into(), &device.env);
 
             device.run(ip, port, "_actuator", targets, mdns);
         })
     }
 }
 
-impl Actuator for TemperatureActuator {}
+impl Actuator for TemperatureActuator {
+    fn get_environment(&self) -> Option<ServiceInfo> {
+        let lock = self.env.lock();
+        let guard = lock.unwrap();
+
+        println!("!!! env: {:?}", guard.keys());
+
+        guard.get(&Id::new("environment")).cloned()
+    }
+}
 
 impl TemperatureActuator {
     pub fn new(id: Id, name: Name) -> Self {
