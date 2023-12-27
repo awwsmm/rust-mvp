@@ -7,6 +7,7 @@ use actuator_temperature::TemperatureActuator;
 use controller::Controller;
 use device::id::Id;
 use device::name::Name;
+use environment::Environment;
 use sensor_temperature::TemperatureSensor;
 
 fn main() {
@@ -42,8 +43,8 @@ fn main() {
     // spin up the controller
     // --------------------------------------------------------------------------------
 
-    // let environment_port = 5454;
-    // Environment::start_default(ip, environment_port, mdns);
+    let environment_port = 5454;
+    Environment::start_default_new(ip, environment_port, mdns);
 
     // demo should loop continually
     std::thread::sleep(Duration::MAX)

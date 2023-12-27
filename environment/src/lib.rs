@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 
 use mdns_sd::ServiceDaemon;
 use rand::{thread_rng, Rng};
@@ -85,6 +86,20 @@ impl Environment {
     pub fn start_default(ip: IpAddr, port: u16, mdns: Arc<ServiceDaemon>) {
         let device = Self::default();
         <Self as Device>::start(ip, port, device.id, device.name, mdns);
+    }
+
+    pub fn start_default_new(ip: IpAddr, port: u16, mdns: Arc<ServiceDaemon>) -> JoinHandle<()> {
+        std::thread::spawn(move || {
+            println!(">>> [environment start_default_new] SPAWNED A NEW THREAD");
+
+            let device = Self::default();
+            Self::start_new(ip, port, device.id, device.name, mdns);
+        })
+    }
+
+    fn start_new(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>) {
+        let device = Self::new(id, name);
+        device.run_new(ip, port, "_environment", HashMap::new(), mdns);
     }
 
     #[allow(dead_code)] // remove this ASAP
