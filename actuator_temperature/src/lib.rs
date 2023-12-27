@@ -41,13 +41,23 @@ impl Device for TemperatureActuator {
         Self::default_handler()
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>) {
-        let device = Self::new(id, name);
+    fn start(
+        ip: IpAddr,
+        port: u16,
+        id: Id,
+        name: Name,
+        mdns: Arc<ServiceDaemon>,
+    ) -> JoinHandle<()> {
+        std::thread::spawn(move || {
+            println!(">>> [actuator_temp start] SPAWNED A NEW THREAD");
 
-        let mut targets = HashMap::new();
-        targets.insert("_controller".into(), &device.env);
+            let device = Self::new(id, name);
 
-        device.run(ip, port, "_actuator", targets, mdns);
+            let mut targets = HashMap::new();
+            targets.insert("_controller".into(), &device.env);
+
+            device.run(ip, port, "_actuator", targets, mdns);
+        })
     }
 }
 
@@ -60,24 +70,5 @@ impl TemperatureActuator {
             name,
             env: Arc::new(Mutex::new(HashMap::new())),
         }
-    }
-
-    pub fn start_new(
-        ip: IpAddr,
-        port: u16,
-        id: Id,
-        name: Name,
-        mdns: Arc<ServiceDaemon>,
-    ) -> JoinHandle<()> {
-        std::thread::spawn(move || {
-            println!(">>> [actuator_temp start_new] SPAWNED A NEW THREAD");
-
-            let device = Self::new(id, name);
-
-            let mut targets = HashMap::new();
-            targets.insert("_controller".into(), &device.env);
-
-            device.run_new(ip, port, "_actuator", targets, mdns);
-        })
     }
 }

@@ -134,30 +134,7 @@ pub trait Device {
 
     /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually
     /// listen for incoming `TcpStream`s and handles them appropriately.
-    fn respond(
-        &self,
-        ip: IpAddr,
-        port: u16,
-        group: &str,
-        mdns: Arc<ServiceDaemon>,
-    ) -> JoinHandle<()> {
-        self.register(ip, port, group, Arc::clone(&mdns));
-        let listener = self.bind(ip, port);
-        let handler = self.get_handler();
-
-        std::thread::spawn(move || {
-            println!(">>> [respond] SPAWNED A NEW THREAD");
-
-            for stream in listener.incoming() {
-                let mut stream = stream.unwrap();
-                (handler.handle)(&mut stream, Arc::clone(&mdns));
-            }
-        })
-    }
-
-    /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually
-    /// listen for incoming `TcpStream`s and handles them appropriately.
-    fn respond_new(&self, ip: IpAddr, port: u16, group: &str, mdns: Arc<ServiceDaemon>) {
+    fn respond(&self, ip: IpAddr, port: u16, group: &str, mdns: Arc<ServiceDaemon>) {
         self.register(ip, port, group, Arc::clone(&mdns));
         let listener = self.bind(ip, port);
         let handler = self.get_handler();
@@ -176,26 +153,11 @@ pub trait Device {
         group: &str,
         targets: HashMap<String, &Arc<Mutex<HashMap<Id, ServiceInfo>>>>,
         mdns: Arc<ServiceDaemon>,
-    ) -> JoinHandle<()> {
-        for (group, devices) in targets.iter() {
-            self.discover(group, devices, Arc::clone(&mdns));
-        }
-        self.respond(ip, port, group, mdns)
-    }
-
-    /// Configures this `Device` to `respond` to incoming requests and discover `targets` for outgoing requests.
-    fn run_new(
-        &self,
-        ip: IpAddr,
-        port: u16,
-        group: &str,
-        targets: HashMap<String, &Arc<Mutex<HashMap<Id, ServiceInfo>>>>,
-        mdns: Arc<ServiceDaemon>,
     ) {
         for (group, devices) in targets.iter() {
             self.discover(group, devices, Arc::clone(&mdns));
         }
-        self.respond_new(ip, port, group, mdns)
+        self.respond(ip, port, group, mdns)
     }
 
     fn extract_id(info: &ServiceInfo) -> Option<Id> {
@@ -247,5 +209,6 @@ pub trait Device {
         })
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>);
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>)
+        -> JoinHandle<()>;
 }

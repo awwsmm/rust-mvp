@@ -7,6 +7,7 @@ use actuator_temperature::TemperatureActuator;
 use controller::Controller;
 use device::id::Id;
 use device::name::Name;
+use device::Device;
 use environment::Environment;
 use sensor_temperature::TemperatureSensor;
 
@@ -27,24 +28,24 @@ fn main() {
     let name = Name::new("My Thermo-5000");
 
     // here is the Sensor
-    TemperatureSensor::start_new(ip, 8787, id.clone(), name.clone(), Arc::clone(&mdns));
+    <TemperatureSensor as Device>::start(ip, 8787, id.clone(), name.clone(), Arc::clone(&mdns));
 
     // here is the Actuator
-    TemperatureActuator::start_new(ip, 9898, id.clone(), name.clone(), Arc::clone(&mdns));
+    <TemperatureActuator as Device>::start(ip, 9898, id.clone(), name.clone(), Arc::clone(&mdns));
 
     // --------------------------------------------------------------------------------
     // spin up the controller
     // --------------------------------------------------------------------------------
 
     let controller_port = 6565;
-    Controller::start_default_new(ip, controller_port, Arc::clone(&mdns));
+    Controller::start_default(ip, controller_port, Arc::clone(&mdns));
 
     // --------------------------------------------------------------------------------
     // spin up the controller
     // --------------------------------------------------------------------------------
 
     let environment_port = 5454;
-    Environment::start_default_new(ip, environment_port, mdns);
+    Environment::start_default(ip, environment_port, mdns);
 
     // demo should loop continually
     std::thread::sleep(Duration::MAX)

@@ -61,9 +61,18 @@ impl Device for Environment {
         })
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>) {
-        let device = Self::new(id, name);
-        device.run(ip, port, "_environment", HashMap::new(), mdns);
+    fn start(
+        ip: IpAddr,
+        port: u16,
+        id: Id,
+        name: Name,
+        mdns: Arc<ServiceDaemon>,
+    ) -> JoinHandle<()> {
+        std::thread::spawn(move || {
+            println!(">>> [environment start] SPAWNED A NEW THREAD");
+            let device = Self::new(id, name);
+            device.run(ip, port, "_environment", HashMap::new(), mdns);
+        })
     }
 }
 
@@ -82,24 +91,9 @@ impl Environment {
         }
     }
 
-    #[allow(dead_code)] // remove this ASAP
-    pub fn start_default(ip: IpAddr, port: u16, mdns: Arc<ServiceDaemon>) {
+    pub fn start_default(ip: IpAddr, port: u16, mdns: Arc<ServiceDaemon>) -> JoinHandle<()> {
         let device = Self::default();
-        <Self as Device>::start(ip, port, device.id, device.name, mdns);
-    }
-
-    pub fn start_default_new(ip: IpAddr, port: u16, mdns: Arc<ServiceDaemon>) -> JoinHandle<()> {
-        std::thread::spawn(move || {
-            println!(">>> [environment start_default_new] SPAWNED A NEW THREAD");
-
-            let device = Self::default();
-            Self::start_new(ip, port, device.id, device.name, mdns);
-        })
-    }
-
-    fn start_new(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>) {
-        let device = Self::new(id, name);
-        device.run_new(ip, port, "_environment", HashMap::new(), mdns);
+        Self::start(ip, port, device.id, device.name, mdns)
     }
 
     #[allow(dead_code)] // remove this ASAP

@@ -42,6 +42,7 @@ pub trait Sensor: Device {
 mod sensor_tests {
     use std::net::IpAddr;
     use std::sync::Arc;
+    use std::thread::JoinHandle;
 
     use mdns_sd::ServiceDaemon;
 
@@ -79,7 +80,15 @@ mod sensor_tests {
             Handler::ignore()
         }
 
-        fn start(_ip: IpAddr, _port: u16, _id: Id, _name: Name, _mdns: Arc<ServiceDaemon>) {}
+        fn start(
+            _ip: IpAddr,
+            _port: u16,
+            _id: Id,
+            _name: Name,
+            _mdns: Arc<ServiceDaemon>,
+        ) -> JoinHandle<()> {
+            todo!()
+        }
     }
 
     impl Sensor for Thermometer {
