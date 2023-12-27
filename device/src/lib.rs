@@ -4,7 +4,7 @@ use std::net::{IpAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use mdns_sd::ServiceInfo;
+use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use crate::handler::Handler;
 use crate::id::Id;
@@ -46,8 +46,8 @@ pub trait Device {
     fn get_handler(&self) -> Handler;
 
     /// Registers this `Device` with mDNS in the specified group.
-    fn register(&self, ip: IpAddr, port: u16, group: &str) {
-        let mdns = mdns_sd::ServiceDaemon::new().unwrap();
+    fn register(&self, ip: IpAddr, port: u16, group: &str, mdns: Arc<ServiceDaemon>) {
+        // let mdns = mdns_sd::ServiceDaemon::new().unwrap();
         let host = ip.clone().to_string();
         let name = format!("{}.{}", self.get_id(), Self::get_model().id());
         let domain = format!("{}._tcp.local.", group);
@@ -134,15 +134,21 @@ pub trait Device {
 
     /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually
     /// listen for incoming `TcpStream`s and handles them appropriately.
-    fn respond(&self, ip: IpAddr, port: u16, group: &str) -> JoinHandle<()> {
-        self.register(ip, port, group);
+    fn respond(
+        &self,
+        ip: IpAddr,
+        port: u16,
+        group: &str,
+        mdns: Arc<ServiceDaemon>,
+    ) -> JoinHandle<()> {
+        self.register(ip, port, group, Arc::clone(&mdns));
         let listener = self.bind(ip, port);
         let handler = self.get_handler();
 
         std::thread::spawn(move || {
             for stream in listener.incoming() {
                 let mut stream = stream.unwrap();
-                (handler.handle)(&mut stream);
+                (handler.handle)(&mut stream, Arc::clone(&mdns));
             }
         })
     }
@@ -154,11 +160,12 @@ pub trait Device {
         port: u16,
         group: &str,
         targets: HashMap<String, &Arc<Mutex<HashMap<Id, ServiceInfo>>>>,
+        mdns: Arc<ServiceDaemon>,
     ) -> JoinHandle<()> {
         for (group, devices) in targets.iter() {
-            self.discover(group, devices);
+            self.discover(group, devices, Arc::clone(&mdns));
         }
-        self.respond(ip, port, group)
+        self.respond(ip, port, group, mdns)
     }
 
     fn extract_id(info: &ServiceInfo) -> Option<Id> {
@@ -176,6 +183,7 @@ pub trait Device {
         &self,
         group: &str,
         devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+        mdns: Arc<ServiceDaemon>,
     ) -> JoinHandle<()> {
         let group = String::from(group);
 
@@ -185,7 +193,7 @@ pub trait Device {
         let self_fullname = self.get_fullname().clone();
 
         std::thread::spawn(move || {
-            let mdns = mdns_sd::ServiceDaemon::new().unwrap();
+            // let mdns = mdns_sd::ServiceDaemon::new().unwrap();
             let service_type = format!("{}._tcp.local.", group);
             let receiver = mdns.browse(service_type.as_str()).unwrap();
 
@@ -207,5 +215,5 @@ pub trait Device {
         })
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name);
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>);
 }

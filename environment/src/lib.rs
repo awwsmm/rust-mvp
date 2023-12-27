@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
+use mdns_sd::ServiceDaemon;
 use rand::{thread_rng, Rng};
 
 use datum::{Datum, DatumUnit, DatumValueType};
@@ -44,7 +45,7 @@ impl Device for Environment {
 
     // TODO Environment should respond to HTTP requests from Actuators and Sensors.
     fn get_handler(&self) -> Handler {
-        Handler::new(|stream| {
+        Handler::new(|stream, _mdns| {
             if let Ok(message) = Self::parse_http_request(stream) {
                 println!(
                     "[Environment] received\n----------\n{}\n----------",
@@ -59,9 +60,9 @@ impl Device for Environment {
         })
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name) {
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>) {
         let device = Self::new(id, name);
-        device.run(ip, port, "_environment", HashMap::new());
+        device.run(ip, port, "_environment", HashMap::new(), mdns);
     }
 }
 
@@ -81,9 +82,9 @@ impl Environment {
     }
 
     #[allow(dead_code)] // remove this ASAP
-    pub fn start_default(ip: IpAddr, port: u16) {
+    pub fn start_default(ip: IpAddr, port: u16, mdns: Arc<ServiceDaemon>) {
         let device = Self::default();
-        <Self as Device>::start(ip, port, device.id, device.name);
+        <Self as Device>::start(ip, port, device.id, device.name, mdns);
     }
 
     #[allow(dead_code)] // remove this ASAP

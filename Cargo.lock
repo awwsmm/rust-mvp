@@ -154,6 +154,7 @@ dependencies = [
  "device",
  "environment",
  "local-ip-address",
+ "mdns-sd",
  "sensor",
  "sensor_temperature",
  "uuid",
@@ -512,6 +513,7 @@ version = "0.1.0"
 dependencies = [
  "datum",
  "device",
+ "mdns-sd",
 ]
 
 [[package]]

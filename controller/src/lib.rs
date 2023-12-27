@@ -4,6 +4,8 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use mdns_sd::ServiceDaemon;
+
 use device::handler::Handler;
 use device::id::Id;
 use device::model::Model;
@@ -52,14 +54,14 @@ impl Device for Controller {
         Handler::ignore()
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name) {
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>) {
         let device = Self::new(id, name);
 
         let mut targets = HashMap::new();
         targets.insert("_sensor".into(), &device.state.sensors);
         targets.insert("_actuator".into(), &device.state.actuators);
 
-        device.run(ip, port, "_controller", targets);
+        device.run(ip, port, "_controller", targets, mdns);
 
         Controller::poll(&device);
     }
@@ -80,9 +82,9 @@ impl Controller {
         }
     }
 
-    pub fn start_default(ip: IpAddr, port: u16) {
+    pub fn start_default(ip: IpAddr, port: u16, mdns: Arc<ServiceDaemon>) {
         let device = Self::default();
-        <Self as Device>::start(ip, port, device.id, device.name);
+        <Self as Device>::start(ip, port, device.id, device.name, mdns);
     }
 
     fn is_supported(model: &Model) -> bool {

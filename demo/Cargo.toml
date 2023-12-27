@@ -15,4 +15,5 @@ sensor_temperature = { path = "../sensor_temperature" }
 actuator_temperature = { path = "../actuator_temperature" }
 
 local-ip-address = "0.5.6"
+mdns-sd = "0.10.1"
 uuid = {version = "1.6.1", features = ["v4"]}

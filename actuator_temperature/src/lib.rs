@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
-use mdns_sd::ServiceInfo;
+use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use actuator::Actuator;
 use device::handler::Handler;
@@ -40,13 +40,13 @@ impl Device for TemperatureActuator {
         Self::default_handler()
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name) {
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>) {
         let device = Self::new(id, name);
 
         let mut targets = HashMap::new();
         targets.insert("_controller".into(), &device.env);
 
-        device.run(ip, port, "_actuator", targets);
+        device.run(ip, port, "_actuator", targets, mdns);
     }
 }
 

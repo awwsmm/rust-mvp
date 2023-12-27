@@ -17,7 +17,7 @@ pub trait Sensor: Device {
 
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
     fn default_handler() -> Handler {
-        Handler::new(|stream| {
+        Handler::new(|stream, _mdns| {
             if let Ok(message) = Self::parse_http_request(stream) {
                 println!("[Sensor] received\n----------\n{}\n----------", message);
 
@@ -40,12 +40,16 @@ pub trait Sensor: Device {
 
 #[cfg(test)]
 mod sensor_tests {
+    use std::net::IpAddr;
+    use std::sync::Arc;
+
+    use mdns_sd::ServiceDaemon;
+
     use datum::{DatumUnit, DatumValue};
     use device::handler::Handler;
     use device::id::Id;
     use device::model::Model;
     use device::name::Name;
-    use std::net::IpAddr;
 
     use super::*;
 
@@ -75,7 +79,7 @@ mod sensor_tests {
             Handler::ignore()
         }
 
-        fn start(_ip: IpAddr, _port: u16, _id: Id, _name: Name) {}
+        fn start(_ip: IpAddr, _port: u16, _id: Id, _name: Name, _mdns: Arc<ServiceDaemon>) {}
     }
 
     impl Sensor for Thermometer {
