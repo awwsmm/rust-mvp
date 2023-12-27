@@ -74,6 +74,8 @@ impl TemperatureSensor {
         mdns: Arc<ServiceDaemon>,
     ) -> JoinHandle<()> {
         std::thread::spawn(move || {
+            println!(">>> [sensor_temp start_new] SPAWNED A NEW THREAD");
+
             let device = Self::new(id, name);
 
             let mut targets = HashMap::new();

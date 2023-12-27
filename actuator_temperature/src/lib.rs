@@ -70,6 +70,8 @@ impl TemperatureActuator {
         mdns: Arc<ServiceDaemon>,
     ) -> JoinHandle<()> {
         std::thread::spawn(move || {
+            println!(">>> [actuator_temp start_new] SPAWNED A NEW THREAD");
+
             let device = Self::new(id, name);
 
             let mut targets = HashMap::new();

@@ -146,6 +146,8 @@ pub trait Device {
         let handler = self.get_handler();
 
         std::thread::spawn(move || {
+            println!(">>> [respond] SPAWNED A NEW THREAD");
+
             for stream in listener.incoming() {
                 let mut stream = stream.unwrap();
                 (handler.handle)(&mut stream, Arc::clone(&mdns));
@@ -221,6 +223,8 @@ pub trait Device {
         let self_fullname = self.get_fullname().clone();
 
         std::thread::spawn(move || {
+            println!(">>> [discover] SPAWNED A NEW THREAD");
+
             // let mdns = mdns_sd::ServiceDaemon::new().unwrap();
             let service_type = format!("{}._tcp.local.", group);
             let receiver = mdns.browse(service_type.as_str()).unwrap();

@@ -87,6 +87,27 @@ impl Controller {
         <Self as Device>::start(ip, port, device.id, device.name, mdns);
     }
 
+    pub fn start_default_new(ip: IpAddr, port: u16, mdns: Arc<ServiceDaemon>) -> JoinHandle<()> {
+        std::thread::spawn(move || {
+            println!(">>> [controller start_default_new] SPAWNED A NEW THREAD");
+
+            let device = Self::default();
+            Self::start_new(ip, port, device.id, device.name, mdns);
+        })
+    }
+
+    fn start_new(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>) {
+        let device = Self::new(id, name);
+
+        let mut targets = HashMap::new();
+        targets.insert("_sensor".into(), &device.state.sensors);
+        targets.insert("_actuator".into(), &device.state.actuators);
+
+        Controller::poll(&device);
+
+        device.run_new(ip, port, "_controller", targets, mdns);
+    }
+
     fn is_supported(model: &Model) -> bool {
         DEFAULT_ASSESSOR.contains_key(model.id().as_str())
     }
@@ -97,6 +118,8 @@ impl Controller {
         let actuators_mutex = Arc::clone(&self.state.actuators);
 
         std::thread::spawn(move || {
+            println!(">>> [poll] SPAWNED A NEW THREAD");
+
             loop {
                 // We put the locks in this inner scope so the lock is released at the end of the scope
                 {
