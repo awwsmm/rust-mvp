@@ -4,9 +4,10 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use mdns_sd::ServiceDaemon;
+use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use device::id::Id;
+use device::message::Message;
 use device::model::Model;
 use device::name::Name;
 use device::{Device, Handler};
@@ -56,7 +57,7 @@ impl Device for Controller {
     fn get_handler(&self) -> Handler {
         // Box::new(move |stream, mdns| {
         //     if let Ok(message) = Self::parse_http_request(stream) {
-        //         message
+        //         println!("Controller received message: {}", message);
         //     }
         // })
         Box::new(|_, _| ())
@@ -111,10 +112,19 @@ impl Controller {
         DEFAULT_ASSESSOR.contains_key(model.id().as_str())
     }
 
+    /// Pings the latest `Sensor` so that it can (asynchronously) send a response containing the latest `Datum`.
+    pub fn ping_sensor(address: String, info: &ServiceInfo) {
+        // send the minimum possible payload. We only want to ping the Sensor
+        // see: https://stackoverflow.com/a/9734866
+        State::send_command(info, Message::ping(address).to_string().as_str());
+    }
+
     pub fn poll(&self) -> JoinHandle<()> {
         let sensors_mutex = Arc::clone(&self.state.sensors);
         // let assessors = Arc::clone(&self.state.assessors);
         // let actuators_mutex = Arc::clone(&self.state.actuators);
+
+        let address = self.get_address().clone();
 
         std::thread::spawn(move || {
             println!(">>> [poll] SPAWNED A NEW THREAD");
@@ -139,7 +149,7 @@ impl Controller {
                         if let Some(Ok(model)) = Self::extract_model(service_info) {
                             if Self::is_supported(&model) {
                                 println!("[poll] pinging sensor with id {}", id);
-                                State::ping_sensor(service_info);
+                                Self::ping_sensor(address.clone(), service_info);
 
                                 // println!(
                                 //     "[poll] assessing datum received from sensor (model={})",

@@ -25,11 +25,13 @@ pub trait Actuator: Device {
                 Some(info) => {
                     println!("!!! found environment at {}", info.get_fullname());
 
+                    let sender = self.get_address().clone();
+
                     let handler: Handler = Box::new(move |stream, mdns| {
                         if let Ok(message) = Self::parse_http_request(stream) {
                             // respond to Controller with OK
                             println!("[Actuator] received\n----------\n{}\n----------", message);
-                            let ack = Message::ack();
+                            let ack = Message::ack(sender.clone());
                             stream.write_all(ack.to_string().as_bytes()).unwrap();
 
                             // and forward command as-is to Environment

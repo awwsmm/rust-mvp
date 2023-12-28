@@ -15,21 +15,35 @@ pub trait Sensor: Device {
     fn get_datum() -> Datum;
 
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
-    fn default_handler() -> Handler {
-        Box::new(|stream, _mdns| {
-            if let Ok(message) = Self::parse_http_request(stream) {
-                println!("[Sensor] received\n----------\n{}\n----------", message);
+    fn get_handler(&self) -> Handler {
+        let address = self.get_address().clone();
 
-                let contents = Self::get_datum().to_string();
-                let message = Message::respond_ok_with_body(HashMap::new(), contents.as_str());
+        Box::new(move |stream, _mdns| {
+            if let Ok(request) = Self::parse_http_request(stream) {
+                println!("[Sensor] received\n----------\n{}\n----------", request);
+                match request.headers.get("sender") {
+                    None => {
+                        println!("[Sensor] unable to handle request, cannot resolve sender")
+                    }
+                    Some(controller) if *controller == "controller" => {
+                        println!("[Sensor] handling request from Controller");
+                        let contents = Self::get_datum().to_string();
+                        let response = Message::respond_ok_with_body(
+                            address.clone(),
+                            HashMap::new(),
+                            contents.as_str(),
+                        );
 
-                stream.write_all(message.to_string().as_bytes()).unwrap();
+                        println!("[Sensor] sending response to Controller {}", response);
+
+                        stream.write_all(response.to_string().as_bytes()).unwrap();
+                    }
+                    Some(other) => {
+                        println!("[Sensor] ignoring request from {}", other)
+                    }
+                }
             }
         })
-    }
-
-    fn get_handler(&self) -> Handler {
-        Self::default_handler()
     }
 
     fn get_group() -> String {

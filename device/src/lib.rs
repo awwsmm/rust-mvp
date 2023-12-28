@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read};
+use std::io::BufReader;
 use std::net::{IpAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -87,52 +87,7 @@ pub trait Device {
 
     /// Reads a message from a `TcpStream` and parses it into the message line, headers, and body.
     fn parse_http_request(stream: &TcpStream) -> Result<Message, String> {
-        let mut reader = BufReader::new(stream);
-
-        let mut message = String::new();
-        reader
-            .read_line(&mut message)
-            .map_err(|_| String::from("cannot read message"))?;
-
-        let mut headers: HashMap<String, String> = HashMap::new();
-
-        loop {
-            let mut line = String::new();
-            match reader.read_line(&mut line) {
-                Ok(size) if size > 2 => {
-                    // a blank line (CRLF only) separates HTTP headers and body
-                    match line.split_once(": ") {
-                        // HTTP headers are always formatted as "key: value"
-                        Some((key, value)) => {
-                            headers.insert(key.trim().into(), value.trim().into())
-                        }
-                        None => continue, // skip any header lines that can't be parsed
-                    };
-                }
-                _ => break, // if the reader fails to read the next line, quit early
-            };
-        }
-
-        let mut body: Option<String> = None;
-
-        if let Some(length) = headers.get("Content-Length") {
-            if let Ok(length) = length.parse::<usize>() {
-                let mut buffer = vec![0; length];
-                reader.read_exact(&mut buffer).unwrap();
-                body = Some(std::str::from_utf8(buffer.as_slice()).unwrap().into());
-            }
-        }
-
-        let message = Message::new(message.trim(), headers, body);
-
-        println!(
-            "[parse_http_request] received\n==========\nmessage line: {}\nheaders: {:?}\nbody:\n----------\n{:?}\n==========",
-            message.request_line.trim(),
-            message.headers,
-            message.body.as_ref().unwrap_or(&String::new())
-        );
-
-        Ok(message)
+        Message::from(BufReader::new(stream))
     }
 
     /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually

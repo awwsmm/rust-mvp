@@ -6,7 +6,6 @@ use std::sync::{Arc, Mutex};
 use mdns_sd::ServiceInfo;
 
 use device::id::Id;
-use device::message::Message;
 
 use crate::assessor::Assessor;
 
@@ -81,13 +80,6 @@ impl State {
     //         Some(line) => Datum::parse(line),
     //     })
     // }
-
-    /// Pings the latest `Sensor` so that it can (asynchronously) send a response containing the latest `Datum`.
-    pub fn ping_sensor(info: &ServiceInfo) {
-        // send the minimum possible payload. We only want to ping the Sensor
-        // see: https://stackoverflow.com/a/9734866
-        State::send_command(info, Message::ping().to_string().as_str());
-    }
 
     // #[allow(dead_code)] // remove this ASAP
     // pub fn command_actuator(info: &ServiceInfo, command_json: String) -> std::io::Result<()> {
