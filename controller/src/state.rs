@@ -1,12 +1,12 @@
 use std::collections::HashMap;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 
 use mdns_sd::ServiceInfo;
 
-use datum::Datum;
 use device::id::Id;
+use device::message::Message;
 
 use crate::assessor::Assessor;
 
@@ -14,6 +14,7 @@ pub struct State {
     // histories: HashMap<Id, SensorHistory>,
     pub(crate) sensors: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
     pub(crate) actuators: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    #[allow(dead_code)] // FIXME remove ASAP
     pub(crate) assessors: Arc<Mutex<HashMap<Id, Assessor>>>,
 }
 
@@ -51,34 +52,41 @@ impl State {
         stream
     }
 
-    /// Attempts to get the latest `Datum` from the `Sensor` with the specified `Id`.
-    #[allow(dead_code)] // remove this ASAP
-    pub fn read_sensor(info: &ServiceInfo) -> Result<Datum, String> {
-        // send the minimum possible payload. We basically just want to ping the Sensor
+    // /// Attempts to get the latest `Datum` from the `Sensor` with the specified `Id`.
+    // #[allow(dead_code)] // remove this ASAP
+    // pub fn read_sensor(info: &ServiceInfo) -> Result<Datum, String> {
+    //     // send the minimum possible payload. We basically just want to ping the Sensor
+    //     // see: https://stackoverflow.com/a/9734866
+    //     let message = "GET / HTTP/1.1\r\n\r\n";
+    //
+    //     let mut stream = State::send_command(info, message);
+    //
+    //     let mut response = String::new();
+    //
+    //     let response = match stream.read_to_string(&mut response) {
+    //         Err(_) => Err(String::from("unable to read stream")),
+    //         Ok(_) => Ok(response),
+    //     };
+    //
+    //     println!(
+    //         "[read_sensor] response from url {}:{}\n----------\n{}\n----------",
+    //         info.get_hostname().trim_end_matches('.'),
+    //         info.get_port(),
+    //         response.clone().unwrap_or(String::from("<error>"))
+    //     );
+    //
+    //     // parse the response and return it
+    //     response.and_then(|r| match r.trim().lines().last() {
+    //         None => Err(String::from("cannot read response body")),
+    //         Some(line) => Datum::parse(line),
+    //     })
+    // }
+
+    /// Pings the latest `Sensor` so that it can (asynchronously) send a response containing the latest `Datum`.
+    pub fn ping_sensor(info: &ServiceInfo) {
+        // send the minimum possible payload. We only want to ping the Sensor
         // see: https://stackoverflow.com/a/9734866
-        let message = "GET / HTTP/1.1\r\n\r\n";
-
-        let mut stream = State::send_command(info, message);
-
-        let mut response = String::new();
-
-        let response = match stream.read_to_string(&mut response) {
-            Err(_) => Err(String::from("unable to read stream")),
-            Ok(_) => Ok(response),
-        };
-
-        println!(
-            "[read_sensor] response from url {}:{}\n----------\n{}\n----------",
-            info.get_hostname().trim_end_matches('.'),
-            info.get_port(),
-            response.clone().unwrap_or(String::from("<error>"))
-        );
-
-        // parse the response and return it
-        response.and_then(|r| match r.trim().lines().last() {
-            None => Err(String::from("cannot read response body")),
-            Some(line) => Datum::parse(line),
-        })
+        State::send_command(info, Message::ping().to_string().as_str());
     }
 
     // #[allow(dead_code)] // remove this ASAP

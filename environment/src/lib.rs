@@ -24,6 +24,7 @@ pub struct Environment {
     id: Id,
     #[allow(dead_code)] // remove this ASAP
     attributes: Mutex<HashMap<Id, DatumGenerator>>,
+    address: String,
 }
 
 impl Device for Environment {
@@ -41,6 +42,10 @@ impl Device for Environment {
 
     fn get_group() -> String {
         String::from("_environment")
+    }
+
+    fn get_address(&self) -> &String {
+        &self.address
     }
 
     // TODO Environment should respond to HTTP requests from Actuators and Sensors.
@@ -67,32 +72,35 @@ impl Device for Environment {
         name: Name,
         mdns: Arc<ServiceDaemon>,
     ) -> JoinHandle<()> {
+        let host = ip.clone().to_string();
+        let address = format!("{}:{}", host, port);
+
         std::thread::spawn(move || {
             println!(">>> [environment start] SPAWNED A NEW THREAD");
-            let device = Self::new(id, name);
+            let device = Self::new(id, name, address);
             device.run(ip, port, "_environment", HashMap::new(), mdns);
         })
     }
 }
 
-impl Default for Environment {
-    fn default() -> Self {
-        Self::new(Id::new("environment"), Name::new("environment"))
-    }
-}
-
 impl Environment {
-    pub fn new(id: Id, name: Name) -> Self {
+    pub fn new(id: Id, name: Name, address: String) -> Self {
         Self {
             name,
             id,
             attributes: Mutex::new(HashMap::new()),
+            address,
         }
     }
 
     pub fn start_default(ip: IpAddr, port: u16, mdns: Arc<ServiceDaemon>) -> JoinHandle<()> {
-        let device = Self::default();
-        Self::start(ip, port, device.id, device.name, mdns)
+        Self::start(
+            ip,
+            port,
+            Id::new("environment"),
+            Name::new("environment"),
+            mdns,
+        )
     }
 
     #[allow(dead_code)] // remove this ASAP
@@ -201,7 +209,7 @@ mod env_tests {
 
     #[test]
     fn test_set_and_get_datum() {
-        let mut environment = Environment::default();
+        let mut environment = Environment::new(Id::new(""), Name::new(""), "".into());
 
         let id = Id::new("test_id");
         let value_type = DatumValueType::Int;
@@ -220,7 +228,7 @@ mod env_tests {
 
     #[test]
     fn test_get_with_existing_generator() {
-        let mut env = Environment::default();
+        let mut env = Environment::new(Id::new(""), Name::new(""), "".into());
         let id = Id::new("test_id");
         let unit = DatumUnit::DegreesC;
 
@@ -237,7 +245,7 @@ mod env_tests {
 
     #[test]
     fn test_get_with_new_bool_generator() {
-        let mut env = Environment::default();
+        let mut env = Environment::new(Id::new(""), Name::new(""), "".into());
         let id = Id::new("new_bool_id");
         let unit = DatumUnit::Unitless;
 
@@ -252,7 +260,7 @@ mod env_tests {
 
     #[test]
     fn test_get_with_new_int_generator() {
-        let mut env = Environment::default();
+        let mut env = Environment::new(Id::new(""), Name::new(""), "".into());
         let id = Id::new("new_int_id");
         let unit = DatumUnit::PoweredOn;
 
@@ -267,7 +275,7 @@ mod env_tests {
 
     #[test]
     fn test_get_with_new_float_generator() {
-        let mut env = Environment::default();
+        let mut env = Environment::new(Id::new(""), Name::new(""), "".into());
         let id = Id::new("new_float_id");
         let unit = DatumUnit::DegreesC;
 

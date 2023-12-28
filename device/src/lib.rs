@@ -42,6 +42,9 @@ pub trait Device {
         )
     }
 
+    /// Returns the ip:port of this `Device` (e.g. "192.168.1.251:8787').
+    fn get_address(&self) -> &String;
+
     /// Returns the helper which defines how to handle HTTP requests.
     fn get_handler(&self) -> Handler;
 

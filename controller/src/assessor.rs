@@ -3,6 +3,7 @@ use phf::{phf_map, Map};
 use datum::Datum;
 use datum::DatumUnit;
 
+#[allow(dead_code)] // FIXME remove ASAP
 pub struct Assessor {
     pub(crate) assess: fn(&Datum) -> Option<Box<dyn actuator::Command>>,
 }

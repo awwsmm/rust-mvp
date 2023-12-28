@@ -17,6 +17,7 @@ pub struct TemperatureActuator {
     id: Id,
     name: Name,
     pub env: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    address: String,
 }
 
 impl Device for TemperatureActuator {
@@ -36,6 +37,10 @@ impl Device for TemperatureActuator {
         <Self as Actuator>::get_group()
     }
 
+    fn get_address(&self) -> &String {
+        &self.address
+    }
+
     fn get_handler(&self) -> Handler {
         self.default_handler()
     }
@@ -47,10 +52,13 @@ impl Device for TemperatureActuator {
         name: Name,
         mdns: Arc<ServiceDaemon>,
     ) -> JoinHandle<()> {
+        let host = ip.clone().to_string();
+        let address = format!("{}:{}", host, port);
+
         std::thread::spawn(move || {
             println!(">>> [actuator_temp start] SPAWNED A NEW THREAD");
 
-            let device = Self::new(id, name);
+            let device = Self::new(id, name, address);
 
             let mut targets = HashMap::new();
             targets.insert("_environment".into(), &device.env);
@@ -72,11 +80,12 @@ impl Actuator for TemperatureActuator {
 }
 
 impl TemperatureActuator {
-    pub fn new(id: Id, name: Name) -> Self {
+    pub fn new(id: Id, name: Name, address: String) -> Self {
         Self {
             id,
             name,
             env: Arc::new(Mutex::new(HashMap::new())),
+            address,
         }
     }
 }

@@ -27,6 +27,10 @@ impl Message {
         }
     }
 
+    pub fn ping() -> Message {
+        Message::new("GET / HTTP/1.1", HashMap::new(), None)
+    }
+
     pub fn ack() -> Message {
         Message::new("HTTP/1.1 200 OK", HashMap::new(), None)
     }
