@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::io::Write;
 
 use datum::Datum;
 use device::message::Message;
@@ -36,7 +35,7 @@ pub trait Sensor: Device {
 
                         println!("[Sensor] sending response to Controller {}", response);
 
-                        stream.write_all(response.to_string().as_bytes()).unwrap();
+                        response.send(stream);
                     }
                     Some(other) => {
                         println!("[Sensor] ignoring request from {}", other)

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::io::BufRead;
+use std::io::{BufRead, Write};
+use std::net::TcpStream;
 
 #[derive(PartialEq)]
 pub struct Message {
@@ -105,6 +106,10 @@ impl Message {
         headers.insert("Content-Length".into(), body.len().to_string());
 
         Self::respond_ok(sender, headers, Some(String::from(body)))
+    }
+
+    pub fn send(&self, tcp_stream: &mut TcpStream) {
+        tcp_stream.write_all(self.to_string().as_bytes()).unwrap();
     }
 }
 

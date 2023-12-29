@@ -74,10 +74,21 @@ pub trait Device {
         mdns.register(my_service).unwrap()
     }
 
+    fn address(host: String, port: String) -> String {
+        format!("{}:{}", host, port)
+    }
+
+    fn extract_address(info: &ServiceInfo) -> String {
+        Self::address(
+            info.get_hostname().trim_end_matches('.').to_string(),
+            info.get_port().to_string(),
+        )
+    }
+
     /// Creates a `TcpListener` and binds it to the specified `ip` and `port`.
     fn bind(&self, ip: IpAddr, port: u16) -> TcpListener {
         let host = ip.clone().to_string();
-        let address = format!("{}:{}", host, port);
+        let address = Self::address(host, port.to_string());
         let name = &self.get_name();
 
         println!("Creating new device '{}' at {}", name, address);

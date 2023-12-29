@@ -53,7 +53,7 @@ impl Device for TemperatureActuator {
         mdns: Arc<ServiceDaemon>,
     ) -> JoinHandle<()> {
         let host = ip.clone().to_string();
-        let address = format!("{}:{}", host, port);
+        let address = <Self as Device>::address(host, port.to_string());
 
         std::thread::spawn(move || {
             println!(">>> [actuator_temp start] SPAWNED A NEW THREAD");

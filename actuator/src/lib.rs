@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::io::Write;
 use std::net::TcpStream;
 use std::time::Duration;
 
@@ -32,7 +31,7 @@ pub trait Actuator: Device {
                             // respond to Controller with OK
                             println!("[Actuator] received\n----------\n{}\n----------", message);
                             let ack = Message::ack(sender.clone());
-                            stream.write_all(ack.to_string().as_bytes()).unwrap();
+                            ack.send(stream);
 
                             // and forward command as-is to Environment
                             let service_type = "_environment._tcp.local.";
@@ -62,11 +61,7 @@ pub trait Actuator: Device {
                                 // if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
                                 println!("[Actuator] found Environment, forwarding message");
 
-                                let address = format!(
-                                    "{}:{}",
-                                    info.get_hostname().trim_end_matches('.'),
-                                    info.get_port()
-                                );
+                                let address = <Self as Device>::extract_address(&info);
 
                                 println!("[Actuator] connecting to url {}", address);
 
@@ -74,7 +69,7 @@ pub trait Actuator: Device {
 
                                 println!("[Actuator] sending message: {}", message);
 
-                                stream.write_all(message.to_string().as_bytes()).unwrap();
+                                message.send(&mut stream);
                             }
 
                             println!("FINDME exited while loop");

@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-use std::io::Write;
-use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 
 use mdns_sd::ServiceInfo;
@@ -33,23 +31,23 @@ impl State {
         Self::default()
     }
 
-    pub(crate) fn send_command(info: &ServiceInfo, message: &str) -> TcpStream {
-        let address = format!(
-            "{}:{}",
-            info.get_hostname().trim_end_matches('.'),
-            info.get_port()
-        );
-
-        println!("[send_request] connecting to url {}", address);
-
-        let mut stream = TcpStream::connect(address).unwrap();
-
-        println!("[send_request] sending message: {}", message);
-
-        stream.write_all(message.as_bytes()).unwrap();
-
-        stream
-    }
+    // pub(crate) fn send_command(info: &ServiceInfo, message: &str) -> TcpStream {
+    //     let address = format!(
+    //         "{}:{}",
+    //         info.get_hostname().trim_end_matches('.'),
+    //         info.get_port()
+    //     );
+    //
+    //     println!("[send_request] connecting to url {}", address);
+    //
+    //     let mut stream = TcpStream::connect(address).unwrap();
+    //
+    //     println!("[send_request] sending message: {}", message);
+    //
+    //     message.send(&stream);
+    //
+    //     stream
+    // }
 
     // /// Attempts to get the latest `Datum` from the `Sensor` with the specified `Id`.
     // #[allow(dead_code)] // remove this ASAP

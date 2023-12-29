@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::net::IpAddr;
+use std::net::{IpAddr, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -71,7 +71,7 @@ impl Device for Controller {
         mdns: Arc<ServiceDaemon>,
     ) -> JoinHandle<()> {
         let host = ip.clone().to_string();
-        let address = format!("{}:{}", host, port);
+        let address = <Self as Device>::address(host, port.to_string());
 
         std::thread::spawn(move || {
             println!(">>> [controller start] SPAWNED A NEW THREAD");
@@ -113,10 +113,15 @@ impl Controller {
     }
 
     /// Pings the latest `Sensor` so that it can (asynchronously) send a response containing the latest `Datum`.
-    pub fn ping_sensor(address: String, info: &ServiceInfo) {
+    pub fn ping_sensor(sender: String, info: &ServiceInfo) {
+        let address = <Self as Device>::extract_address(info);
+
+        let mut tcp_stream = TcpStream::connect(address).unwrap();
+
         // send the minimum possible payload. We only want to ping the Sensor
         // see: https://stackoverflow.com/a/9734866
-        State::send_command(info, Message::ping(address).to_string().as_str());
+        let ping = Message::ping(sender);
+        ping.send(&mut tcp_stream);
     }
 
     pub fn poll(&self) -> JoinHandle<()> {
