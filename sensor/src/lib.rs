@@ -53,6 +53,7 @@ pub trait Sensor: Device {
                     let sender_address = self.get_address().clone();
 
                     let self_id = self.get_id().to_string();
+                    let self_model = Self::get_model().id();
                     let self_kind = self.get_datum_value_type().to_string();
                     let self_unit = self.get_datum_unit().to_string();
 
@@ -92,9 +93,14 @@ pub trait Sensor: Device {
                                 println!("[Sensor] connecting to Controller @ {}", controller);
                                 let mut stream = TcpStream::connect(controller).unwrap();
 
-                                let request = Message::ping_with_body(
+                                let mut headers = HashMap::new();
+                                headers.insert("id".into(), self_id.clone());
+                                headers.insert("model".into(), self_model.clone());
+
+                                let request = Message::ping_with_headers_and_body(
                                     sender_name.clone(),
                                     sender_address.clone(),
+                                    headers,
                                     request.body,
                                 );
 

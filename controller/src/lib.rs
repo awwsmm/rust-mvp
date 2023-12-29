@@ -59,6 +59,10 @@ impl Device for Controller {
         let sender_name = self.get_name().to_string().clone();
         let sender_address = self.get_address().clone();
 
+        let assessors = Arc::clone(&self.state.assessors);
+        let assessors = assessors.lock();
+        let assessors = assessors.unwrap().clone();
+
         Box::new(move |stream| {
             if let Ok(message) =
                 Self::ack_and_parse_request(sender_name.clone(), sender_address.clone(), stream)
@@ -68,10 +72,56 @@ impl Device for Controller {
                     message
                 );
 
-                // let contents = Self::get_datum().to_string();
-                // let message = Message::respond_ok_with_body(HashMap::new(), contents.as_str());
+                println!(
+                    "[Controller] available assessors: {:?}",
+                    assessors.keys().map(|each| each.to_string())
+                );
 
-                // stream.write_all(message.to_string().as_bytes()).unwrap();
+                let id = Id::new(message.headers.get("id").unwrap());
+                let model = Model::parse(message.headers.get("model").unwrap()).unwrap();
+
+                if let Some(_assessor) = assessors
+                    .get(&id)
+                    .or_else(|| DEFAULT_ASSESSOR.get(model.id().as_str()))
+                {
+                    println!("[Controller] found assessor")
+
+                //     match datum {
+                //         Err(msg) => {
+                //             println!("unable to read sensor due to: {}", msg)
+                //         }
+                //         Ok(datum) => {
+                //             println!(
+                //                 "[poll] successfully received datum from sensor: {}",
+                //                 datum
+                //             );
+                //
+                //             let command = (assessor.assess)(&datum);
+                //
+                //             if let Some(command) = command {
+                //                 let command_str = command.to_string();
+                //
+                //                 println!(
+                //                     "[poll] sending command [{}] to actuator",
+                //                     command_str
+                //                 );
+                //
+                //                 if let Some(actuator) = actuators.get(id) {
+                //                     State::send_command(
+                //                         actuator,
+                //                         command_str.as_str(),
+                //                     );
+                //                 }
+                //             }
+                //         }
+                //     }
+                } else {
+                    println!(
+                        "[Controller] assessor does not contain id: {}\nknown ids: {:?}",
+                        id,
+                        assessors.keys()
+                    )
+                }
             }
         })
     }
@@ -126,9 +176,6 @@ impl Controller {
 
     pub fn poll(&self) -> JoinHandle<()> {
         let sensors_mutex = Arc::clone(&self.state.sensors);
-        // let assessors = Arc::clone(&self.state.assessors);
-        // let actuators_mutex = Arc::clone(&self.state.actuators);
-
         let sender_name = self.get_name().to_string().clone();
         let sender_address = self.get_address().clone();
 
@@ -138,14 +185,6 @@ impl Controller {
                 {
                     let sensors_lock = sensors_mutex.lock();
                     let sensors = sensors_lock.unwrap();
-
-                    // let actuators_lock = actuators_mutex.lock();
-                    // let actuators = actuators_lock.unwrap();
-
-                    // println!("known actuators: {}", actuators.len());
-
-                    // let assessors = assessors.lock();
-                    // let assessors = assessors.unwrap();
 
                     for (_id, service_info) in sensors.iter() {
                         if let Some(Ok(model)) = Self::extract_model(service_info) {
@@ -162,57 +201,6 @@ impl Controller {
                                     sender_address.clone(),
                                     service_info,
                                 );
-
-                                // println!(
-                                //     "[poll] assessing datum received from sensor (model={})",
-                                //     model.name()
-                                // );
-                                //
-                                // println!(
-                                //     "available assessors: {:?}",
-                                //     assessors.keys().map(|each| each.to_string())
-                                // );
-                                //
-                                // if let Some(assessor) = assessors
-                                //     .get(id)
-                                //     .or_else(|| DEFAULT_ASSESSOR.get(model.id().as_str()))
-                                // {
-                                //     match datum {
-                                //         Err(msg) => {
-                                //             println!("unable to read sensor due to: {}", msg)
-                                //         }
-                                //         Ok(datum) => {
-                                //             println!(
-                                //                 "[poll] successfully received datum from sensor: {}",
-                                //                 datum
-                                //             );
-                                //
-                                //             let command = (assessor.assess)(&datum);
-                                //
-                                //             if let Some(command) = command {
-                                //                 let command_str = command.to_string();
-                                //
-                                //                 println!(
-                                //                     "[poll] sending command [{}] to actuator",
-                                //                     command_str
-                                //                 );
-                                //
-                                //                 if let Some(actuator) = actuators.get(id) {
-                                //                     State::send_command(
-                                //                         actuator,
-                                //                         command_str.as_str(),
-                                //                     );
-                                //                 }
-                                //             }
-                                //         }
-                                //     }
-                                // } else {
-                                //     println!(
-                                //         "[poll] assessor does not contain id: {}\nknown ids: {:?}",
-                                //         id,
-                                //         assessors.keys()
-                                //     )
-                                // }
                             } else {
                                 println!("[poll] unsupported Model: {}", model.name())
                             }

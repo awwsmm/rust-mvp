@@ -4,6 +4,7 @@ use datum::Datum;
 use datum::DatumUnit;
 
 #[allow(dead_code)] // FIXME remove ASAP
+#[derive(Clone)]
 pub struct Assessor {
     pub(crate) assess: fn(&Datum) -> Option<Box<dyn actuator::Command>>,
 }
