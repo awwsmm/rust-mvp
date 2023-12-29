@@ -72,12 +72,25 @@ impl Message {
         Ok(message)
     }
 
-    pub fn ping(sender_name: String, sender_address: String) -> Message {
-        let mut headers = HashMap::new();
+    pub fn ping_with_headers_and_body(
+        sender_name: String,
+        sender_address: String,
+        headers: HashMap<String, String>,
+        body: Option<String>,
+    ) -> Message {
+        let mut headers = headers.clone();
         headers.insert("sender_name".into(), sender_name);
         headers.insert("sender_address".into(), sender_address);
 
-        Message::new("GET / HTTP/1.1", headers, None)
+        Message::new("GET / HTTP/1.1", headers, body)
+    }
+
+    pub fn ping_with_body(
+        sender_name: String,
+        sender_address: String,
+        body: Option<String>,
+    ) -> Message {
+        Self::ping_with_headers_and_body(sender_name, sender_address, HashMap::new(), body)
     }
 
     pub fn ping_with_headers(
@@ -85,11 +98,11 @@ impl Message {
         sender_address: String,
         headers: HashMap<String, String>,
     ) -> Message {
-        let mut headers = headers.clone();
-        headers.insert("sender_name".into(), sender_name);
-        headers.insert("sender_address".into(), sender_address);
+        Self::ping_with_headers_and_body(sender_name, sender_address, headers, None)
+    }
 
-        Message::new("GET / HTTP/1.1", headers, None)
+    pub fn ping(sender_name: String, sender_address: String) -> Message {
+        Self::ping_with_headers_and_body(sender_name, sender_address, HashMap::new(), None)
     }
 
     pub fn ack(sender_name: String, sender_address: String) -> Message {

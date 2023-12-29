@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::net::IpAddr;
+use std::net::{IpAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
@@ -7,6 +7,7 @@ use rand::{thread_rng, Rng};
 
 use datum::{Datum, DatumUnit, DatumValueType};
 use device::id::Id;
+use device::message::Message;
 use device::model::Model;
 use device::name::Name;
 use device::{Device, Handler};
@@ -59,7 +60,7 @@ impl Device for Environment {
                 Self::ack_and_parse_request(sender_name.clone(), sender_address.clone(), stream)
             {
                 println!(
-                    "[Environment] received message (ignoring for now)\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
+                    "[Environment] received message\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
                     message
                 );
 
@@ -77,7 +78,29 @@ impl Device for Environment {
                             (id, Ok(kind), Ok(unit)) => {
                                 let datum = Self::get(attributes.clone(), &id, kind, unit);
 
-                                println!("[Environment] generated Datum: {}", datum)
+                                println!("[Environment] generated Datum: {}", datum);
+
+                                if let Some(address) = message.headers.get("sender_address") {
+                                    let name = message
+                                        .headers
+                                        .get("sender_name")
+                                        .map(|n| format!(" (\"{}\")", n))
+                                        .unwrap_or_default();
+                                    println!(
+                                        "[Environment] connecting to Sensor @ {}{}",
+                                        address, name
+                                    );
+                                    let mut stream = TcpStream::connect(address).unwrap();
+
+                                    let request = Message::ping_with_body(
+                                        sender_name.clone(),
+                                        sender_address.clone(),
+                                        Some(datum.to_string()),
+                                    );
+
+                                    println!("[Environment] sending Datum to Sensor\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
+                                    request.send(&mut stream);
+                                }
                             }
                             _ => println!("[Environment] cannot parse id, kind, or unit"),
                         }
