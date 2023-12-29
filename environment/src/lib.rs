@@ -64,54 +64,86 @@ impl Device for Environment {
                     message
                 );
 
-                match (
-                    message.headers.get("id"),
-                    message.headers.get("kind"),
-                    message.headers.get("unit"),
-                ) {
-                    (Some(id), Some(kind), Some(unit)) => {
+                match message.headers.get("mode") {
+                    Some(x) if x == "request" => {
                         match (
-                            Id::new(id),
-                            DatumValueType::parse(kind),
-                            DatumUnit::parse(unit),
+                            message.headers.get("id"),
+                            message.headers.get("kind"),
+                            message.headers.get("unit"),
                         ) {
-                            (id, Ok(kind), Ok(unit)) => {
-                                let datum = Self::get(attributes.clone(), &id, kind, unit);
+                            (Some(id), Some(kind), Some(unit)) => {
+                                match (
+                                    Id::new(id),
+                                    DatumValueType::parse(kind),
+                                    DatumUnit::parse(unit),
+                                ) {
+                                    (id, Ok(kind), Ok(unit)) => {
+                                        let datum = Self::get(attributes.clone(), &id, kind, unit);
 
-                                println!("[Environment] generated Datum: {}", datum);
+                                        println!("[Environment] generated Datum: {}", datum);
 
-                                if let Some(address) = message.headers.get("sender_address") {
-                                    let name = message
-                                        .headers
-                                        .get("sender_name")
-                                        .map(|n| format!(" (\"{}\")", n))
-                                        .unwrap_or_default();
-                                    println!(
-                                        "[Environment] connecting to Sensor @ {}{}",
-                                        address, name
-                                    );
-                                    let mut stream = TcpStream::connect(address).unwrap();
+                                        if let Some(address) = message.headers.get("sender_address")
+                                        {
+                                            let name = message
+                                                .headers
+                                                .get("sender_name")
+                                                .map(|n| format!(" (\"{}\")", n))
+                                                .unwrap_or_default();
+                                            println!(
+                                                "[Environment] connecting to Sensor @ {}{}",
+                                                address, name
+                                            );
+                                            let mut stream = TcpStream::connect(address).unwrap();
 
-                                    let request = Message::ping_with_body(
-                                        sender_name.clone(),
-                                        sender_address.clone(),
-                                        Some(datum.to_string()),
-                                    );
+                                            let request = Message::ping_with_body(
+                                                sender_name.clone(),
+                                                sender_address.clone(),
+                                                Some(datum.to_string()),
+                                            );
 
-                                    println!("[Environment] sending Datum to Sensor\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
-                                    request.send(&mut stream);
+                                            println!("[Environment] sending Datum to Sensor\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
+                                            request.send(&mut stream);
+                                        }
+                                    }
+                                    _ => println!("[Environment] cannot parse id, kind, or unit"),
                                 }
                             }
-                            _ => println!("[Environment] cannot parse id, kind, or unit"),
+                            _ => println!(
+                                "[Environment] cannot parse headers to get appropriate data"
+                            ),
                         }
                     }
-                    _ => println!("[Environment] cannot parse headers to get appropriate data"),
+
+                    Some(x) if x == "command" => {
+                        println!("[Environment] received command: {}", x);
+
+                        let model = message.headers.get("model");
+
+                        match model.map(|m| Model::parse(m)) {
+                            Some(Ok(model)) => {
+                                match model {
+                                    Model::Controller => println!("[Environment] does not accept Commands directly from the Controller"),
+                                    Model::Environment => println!("[Environment] does not accept Commands from itself"),
+                                    Model::Unsupported => println!("[Environment] unsupported device"),
+                                    Model::Thermo5000 => {
+
+                                        match message.body.as_ref().map(|b| actuator_temperature::command::Command::parse(b)) {
+                                            Some(Ok(command)) => println!("[Environment] successfully parsed command: {}", command),
+                                            _ => println!("[Environment] could not parse \"{:?}\" as Thermo5000 Command", message.body)
+                                        }
+
+                                    }
+                                }
+                            }
+                            _ => println!("[Environment] cannot parse Model from string: {:?}", model)
+                        }
+                    }
+
+                    other => println!(
+                        "[Environment] received message with unknown mode: {:?}",
+                        other
+                    ),
                 }
-
-                // let contents = Self::get_datum().to_string();
-                // let message = Message::respond_ok_with_body(HashMap::new(), contents.as_str());
-
-                // stream.write_all(message.to_string().as_bytes()).unwrap();
             }
         })
     }

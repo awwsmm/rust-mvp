@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+actuator_temperature = { path = "../actuator_temperature" }
 datum = { path = "../datum" }
 device = { path = "../device" }
 chrono = { version = "0.4.31", features = [] }

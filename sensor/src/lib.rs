@@ -76,6 +76,7 @@ pub trait Sensor: Device {
                                 headers.insert("id".into(), self_id.clone());
                                 headers.insert("kind".into(), self_kind.clone());
                                 headers.insert("unit".into(), self_unit.clone());
+                                headers.insert("mode".into(), "request".into());
 
                                 let request = Message::ping_with_headers(
                                     sender_name.clone(),

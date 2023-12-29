@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::net::TcpStream;
 use std::time::Duration;
@@ -34,6 +35,9 @@ pub trait Actuator: Device {
                         env.get_fullname()
                     );
 
+                    let self_id = self.get_id().to_string();
+                    let self_model = Self::get_model().id();
+
                     let sender_name = self.get_name().to_string().clone();
                     let sender_address = self.get_address().clone();
 
@@ -52,9 +56,21 @@ pub trait Actuator: Device {
                                 println!("[Actuator] connecting to Environment @ {}", env);
                                 let mut stream = TcpStream::connect(env).unwrap();
 
+                                let mut headers = HashMap::new();
+                                headers.insert("id".into(), self_id.clone());
+                                headers.insert("model".into(), self_model.clone());
+                                headers.insert("mode".into(), "command".into());
+
+                                let request = Message::ping_with_headers_and_body(
+                                    sender_name.clone(),
+                                    sender_address.clone(),
+                                    headers,
+                                    request.body,
+                                );
+
                                 println!("[Actuator] forwarding request to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
-                                Message::ping(sender_name.clone(), sender_address.clone())
-                                    .send(&mut stream);
+
+                                request.send(&mut stream);
                             } else {
                                 println!("[Actuator] received request from unhandled sender '{:?}'. Ignoring.", request.headers.get("sender_name"));
                             }
