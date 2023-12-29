@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use mdns_sd::{ServiceDaemon, ServiceInfo};
+use mdns_sd::ServiceInfo;
 
 use datum::{Datum, DatumUnit};
 use device::id::Id;
@@ -45,26 +45,18 @@ impl Device for TemperatureSensor {
         self.default_handler()
     }
 
-    fn start(
-        ip: IpAddr,
-        port: u16,
-        id: Id,
-        name: Name,
-        mdns: Arc<ServiceDaemon>,
-    ) -> JoinHandle<()> {
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
         let host = ip.clone().to_string();
         let address = <Self as Device>::address(host, port.to_string());
 
         std::thread::spawn(move || {
-            println!(">>> [sensor_temp start] SPAWNED A NEW THREAD");
-
             let device = Self::new(id, name, address);
 
             let mut targets = HashMap::new();
             targets.insert("_controller".into(), &device.controller);
             targets.insert("_environment".into(), &device.environment);
 
-            device.run(ip, port, "_sensor", targets, mdns);
+            device.run(ip, port, "_sensor", targets);
         })
     }
 }
@@ -73,9 +65,6 @@ impl Sensor for TemperatureSensor {
     fn get_environment(&self) -> Option<ServiceInfo> {
         let lock = self.environment.lock();
         let guard = lock.unwrap();
-
-        println!("[TemperatureSensor] env: {:?}", guard.keys());
-
         guard.get(&Id::new("environment")).cloned()
     }
 

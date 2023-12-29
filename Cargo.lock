@@ -164,6 +164,7 @@ dependencies = [
 name = "device"
 version = "0.1.0"
 dependencies = [
+ "log",
  "mdns-sd",
 ]
 

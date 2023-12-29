@@ -66,7 +66,7 @@ impl State {
     //     };
     //
     //     println!(
-    //         "[read_sensor] response from url {}:{}\n----------\n{}\n----------",
+    //         "[read_sensor] response from url {}:{}\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
     //         info.get_hostname().trim_end_matches('.'),
     //         info.get_port(),
     //         response.clone().unwrap_or(String::from("<error>"))
@@ -93,7 +93,7 @@ impl State {
     //     let response = State::send_request(info, message.as_str());
     //
     //     println!(
-    //         "[command_actuator] response from url {}:{}\n----------\n{}\n----------",
+    //         "[command_actuator] response from url {}:{}\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
     //         info.get_hostname().trim_end_matches('.'),
     //         info.get_port(),
     //         response.unwrap_or(String::from("<error>"))

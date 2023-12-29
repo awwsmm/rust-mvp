@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 mdns-sd = "0.10.1"
+log = "0.4.20"

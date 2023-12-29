@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use mdns_sd::{ServiceDaemon, ServiceInfo};
+use mdns_sd::ServiceInfo;
 
 use actuator::Actuator;
 use device::id::Id;
@@ -45,25 +45,17 @@ impl Device for TemperatureActuator {
         self.default_handler()
     }
 
-    fn start(
-        ip: IpAddr,
-        port: u16,
-        id: Id,
-        name: Name,
-        mdns: Arc<ServiceDaemon>,
-    ) -> JoinHandle<()> {
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
         let host = ip.clone().to_string();
         let address = <Self as Device>::address(host, port.to_string());
 
         std::thread::spawn(move || {
-            println!(">>> [actuator_temp start] SPAWNED A NEW THREAD");
-
             let device = Self::new(id, name, address);
 
             let mut targets = HashMap::new();
             targets.insert("_environment".into(), &device.env);
 
-            device.run(ip, port, "_actuator", targets, mdns);
+            device.run(ip, port, "_actuator", targets);
         })
     }
 }
@@ -72,9 +64,6 @@ impl Actuator for TemperatureActuator {
     fn get_environment(&self) -> Option<ServiceInfo> {
         let lock = self.env.lock();
         let guard = lock.unwrap();
-
-        println!("[TemperatureActuator] env: {:?}", guard.keys());
-
         guard.get(&Id::new("environment")).cloned()
     }
 }

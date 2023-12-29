@@ -16,12 +16,22 @@ pub trait Actuator: Device {
             // loop until there is an environment to forward commands to
             match self.get_environment() {
                 None => {
-                    println!("[Actuator] could not find Environment");
+                    println!(
+                        "[Actuator] \"{}\" could not find environment",
+                        self.get_name()
+                    );
                     std::thread::sleep(Duration::from_secs(1));
                     continue;
                 }
                 Some(env) => {
-                    println!("[Actuator] found Environment at {}", env.get_fullname());
+                    println!(
+                        "[Actuator] \"{}\" found \"{}\" at {}",
+                        self.get_name(),
+                        env.get_property("name")
+                            .map(|p| p.val_str())
+                            .unwrap_or("<unknown>"),
+                        env.get_fullname()
+                    );
 
                     let sender_name = self.get_name().to_string().clone();
                     let sender_address = self.get_address().clone();
@@ -33,18 +43,15 @@ pub trait Actuator: Device {
                             stream,
                         ) {
                             if request.headers.get("sender_name")
-                                == Some(&String::from("controller"))
+                                == Some(&String::from("Controller"))
                             {
-                                println!("[Actuator] received request from Controller\n----------\n{}\n----------", request);
+                                println!("[Actuator] received request from Controller\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
 
                                 let env = <Self as Device>::extract_address(&env);
                                 println!("[Actuator] connecting to Environment @ {}", env);
                                 let mut stream = TcpStream::connect(env).unwrap();
 
-                                println!(
-                                    "[Actuator] forwarding message as-is to Environment: {}",
-                                    request
-                                );
+                                println!("[Actuator] forwarding message as-is to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
                                 request.send(&mut stream);
                             } else {
                                 println!("[Actuator] received request from unhandled sender '{:?}'. Ignoring.", request.headers.get("sender_name"));

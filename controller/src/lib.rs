@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use mdns_sd::{ServiceDaemon, ServiceInfo};
+use mdns_sd::ServiceInfo;
 
 use device::id::Id;
 use device::message::Message;
@@ -64,7 +64,7 @@ impl Device for Controller {
                 Self::ack_and_parse_request(sender_name.clone(), sender_address.clone(), stream)
             {
                 println!(
-                    "[Controller] received message (ignoring for now)\n----------\n{}\n----------",
+                    "[Controller] received message (ignoring for now)\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
                     message
                 );
 
@@ -76,18 +76,11 @@ impl Device for Controller {
         })
     }
 
-    fn start(
-        ip: IpAddr,
-        port: u16,
-        id: Id,
-        name: Name,
-        mdns: Arc<ServiceDaemon>,
-    ) -> JoinHandle<()> {
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
         let host = ip.clone().to_string();
         let address = <Self as Device>::address(host, port.to_string());
 
         std::thread::spawn(move || {
-            println!(">>> [controller start] SPAWNED A NEW THREAD");
             let device = Self::new(id, name, address);
 
             let mut targets = HashMap::new();
@@ -96,7 +89,7 @@ impl Device for Controller {
 
             Controller::poll(&device);
 
-            device.run(ip, port, "_controller", targets, mdns);
+            device.run(ip, port, "_controller", targets);
         })
     }
 }
@@ -111,14 +104,8 @@ impl Controller {
         }
     }
 
-    pub fn start_default(ip: IpAddr, port: u16, mdns: Arc<ServiceDaemon>) -> JoinHandle<()> {
-        Self::start(
-            ip,
-            port,
-            Id::new("controller"),
-            Name::new("controller"),
-            mdns,
-        )
+    pub fn start_default(ip: IpAddr, port: u16) -> JoinHandle<()> {
+        Self::start(ip, port, Id::new("controller"), Name::new("Controller"))
     }
 
     fn is_supported(model: &Model) -> bool {
@@ -146,15 +133,11 @@ impl Controller {
         let sender_address = self.get_address().clone();
 
         std::thread::spawn(move || {
-            println!(">>> [poll] SPAWNED A NEW THREAD");
-
             loop {
                 // We put the locks in this inner scope so the lock is released at the end of the scope
                 {
                     let sensors_lock = sensors_mutex.lock();
                     let sensors = sensors_lock.unwrap();
-
-                    println!("known sensors: {}", sensors.len());
 
                     // let actuators_lock = actuators_mutex.lock();
                     // let actuators = actuators_lock.unwrap();
@@ -164,10 +147,16 @@ impl Controller {
                     // let assessors = assessors.lock();
                     // let assessors = assessors.unwrap();
 
-                    for (id, service_info) in sensors.iter() {
+                    for (_id, service_info) in sensors.iter() {
                         if let Some(Ok(model)) = Self::extract_model(service_info) {
                             if Self::is_supported(&model) {
-                                println!("[poll] pinging sensor with id {}", id);
+                                println!(
+                                    "[Controller::poll] pinging sensor \"{}\"",
+                                    service_info
+                                        .get_property("name")
+                                        .map(|p| p.val_str())
+                                        .unwrap_or("<unknown>")
+                                );
                                 Self::ping_sensor(
                                     sender_name.clone(),
                                     sender_address.clone(),
@@ -234,7 +223,7 @@ impl Controller {
                 }
 
                 // When the lock_result is released, we pause for a second, so self.sensors isn't continually locked
-                std::thread::sleep(Duration::from_secs(1))
+                std::thread::sleep(Duration::from_secs(3))
             }
         })
     }

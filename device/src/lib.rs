@@ -52,16 +52,20 @@ pub trait Device {
     fn get_handler(&self) -> Handler;
 
     /// Registers this `Device` with mDNS in the specified group.
-    fn register(&self, ip: IpAddr, port: u16, group: &str, mdns: Arc<ServiceDaemon>) {
-        // let mdns = mdns_sd::ServiceDaemon::new().unwrap();
+    fn register(&self, ip: IpAddr, port: u16, group: &str, mdns: ServiceDaemon) {
         let host = ip.clone().to_string();
+        let label = self.get_name().to_string();
         let name = format!("{}.{}", self.get_id(), Self::get_model().id());
         let domain = format!("{}._tcp.local.", group);
 
-        println!("Registering new device via mDNS at {}.{}", name, domain);
+        println!(
+            "[Device::register] registering new Device \"{}\" via mDNS at {}.{}",
+            label, name, domain
+        );
 
         let mut properties = HashMap::new();
         properties.insert(String::from("id"), self.get_id().to_string());
+        properties.insert(String::from("name"), self.get_name().to_string());
         properties.insert(String::from("model"), Self::get_model().id());
 
         let my_service = ServiceInfo::new(
@@ -94,7 +98,10 @@ pub trait Device {
         let address = Self::address(host, port.to_string());
         let name = &self.get_name();
 
-        println!("Creating new device '{}' at {}", name, address);
+        println!(
+            "[Device::bind] binding new TCP listener to \"{}\" at {}",
+            name, address
+        );
 
         TcpListener::bind(address).unwrap()
     }
@@ -116,8 +123,8 @@ pub trait Device {
 
     /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually
     /// listen for incoming `TcpStream`s and handles them appropriately.
-    fn respond(&self, ip: IpAddr, port: u16, group: &str, mdns: Arc<ServiceDaemon>) {
-        self.register(ip, port, group, Arc::clone(&mdns));
+    fn respond(&self, ip: IpAddr, port: u16, group: &str, mdns: ServiceDaemon) {
+        self.register(ip, port, group, mdns.clone());
         let listener = self.bind(ip, port);
         let handler = self.get_handler();
 
@@ -134,12 +141,15 @@ pub trait Device {
         port: u16,
         group: &str,
         targets: HashMap<String, &Arc<Mutex<HashMap<Id, ServiceInfo>>>>,
-        mdns: Arc<ServiceDaemon>,
     ) {
+        // each Device must have its own ServiceDaemon so multiple Devices can consume the same event
+        // (i.e. the Environment coming online)
+        let mdns = ServiceDaemon::new().unwrap();
+
         for (group, devices) in targets.iter() {
-            self.discover(group, devices, Arc::clone(&mdns));
+            self.discover(group, devices, mdns.clone());
         }
-        self.respond(ip, port, group, mdns)
+        self.respond(ip, port, group, mdns.clone())
     }
 
     fn extract_id(info: &ServiceInfo) -> Option<Id> {
@@ -157,18 +167,16 @@ pub trait Device {
         &self,
         group: &str,
         devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>,
-        mdns: Arc<ServiceDaemon>,
+        mdns: ServiceDaemon,
     ) -> JoinHandle<()> {
         let group = String::from(group);
 
         // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
         let devices_mutex = Arc::clone(devices);
-
-        let self_fullname = self.get_fullname().clone();
+        let self_name = self.get_name().to_string();
+        let mdns = mdns.clone();
 
         std::thread::spawn(move || {
-            println!(">>> [discover] SPAWNED A NEW THREAD");
-
             // let mdns = mdns_sd::ServiceDaemon::new().unwrap();
             let service_type = format!("{}._tcp.local.", group);
             let receiver = mdns.browse(service_type.as_str()).unwrap();
@@ -180,9 +188,11 @@ pub trait Device {
                     let mut devices_guard = devices_lock.unwrap();
 
                     println!(
-                        "[Device::discover] {} discovered {}",
-                        self_fullname,
-                        info.get_fullname()
+                        "[Device::discover] \"{}\" discovered \"{}\"",
+                        self_name,
+                        info.get_property("name")
+                            .map(|p| p.val_str())
+                            .unwrap_or("<unknown>")
                     );
 
                     id.map(|i| devices_guard.insert(i, info));
@@ -191,6 +201,5 @@ pub trait Device {
         })
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name, mdns: Arc<ServiceDaemon>)
-        -> JoinHandle<()>;
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()>;
 }

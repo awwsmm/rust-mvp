@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::thread::JoinHandle;
 
-use mdns_sd::ServiceDaemon;
 use rand::{thread_rng, Rng};
 
 use datum::{Datum, DatumUnit, DatumValueType};
@@ -58,7 +57,7 @@ impl Device for Environment {
                 Self::ack_and_parse_request(sender_name.clone(), sender_address.clone(), stream)
             {
                 println!(
-                    "[Environment] received message (ignoring for now)\n----------\n{}\n----------",
+                    "[Environment] received message (ignoring for now)\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
                     message
                 );
 
@@ -70,20 +69,13 @@ impl Device for Environment {
         })
     }
 
-    fn start(
-        ip: IpAddr,
-        port: u16,
-        id: Id,
-        name: Name,
-        mdns: Arc<ServiceDaemon>,
-    ) -> JoinHandle<()> {
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
         let host = ip.clone().to_string();
         let address = <Self as Device>::address(host, port.to_string());
 
         std::thread::spawn(move || {
-            println!(">>> [environment start] SPAWNED A NEW THREAD");
             let device = Self::new(id, name, address);
-            device.run(ip, port, "_environment", HashMap::new(), mdns);
+            device.run(ip, port, "_environment", HashMap::new());
         })
     }
 }
@@ -98,14 +90,8 @@ impl Environment {
         }
     }
 
-    pub fn start_default(ip: IpAddr, port: u16, mdns: Arc<ServiceDaemon>) -> JoinHandle<()> {
-        Self::start(
-            ip,
-            port,
-            Id::new("environment"),
-            Name::new("environment"),
-            mdns,
-        )
+    pub fn start_default(ip: IpAddr, port: u16) -> JoinHandle<()> {
+        Self::start(ip, port, Id::new("environment"), Name::new("Environment"))
     }
 
     #[allow(dead_code)] // remove this ASAP
