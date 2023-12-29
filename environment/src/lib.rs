@@ -5,6 +5,7 @@ use std::thread::JoinHandle;
 
 use rand::{thread_rng, Rng};
 
+use actuator_temperature::command::Command;
 use datum::{Datum, DatumUnit, DatumValueType};
 use device::id::Id;
 use device::message::Message;
@@ -117,25 +118,66 @@ impl Device for Environment {
                     Some(x) if x == "command" => {
                         println!("[Environment] received command: {}", x);
 
-                        let model = message.headers.get("model");
+                        match (message.headers.get("id"), message.headers.get("model")) {
+                            (Some(id), Some(model)) => {
+                                match (Id::new(id), Model::parse(model)) {
+                                    (id, Ok(model)) => {
+                                        match model {
+                                            Model::Controller => println!("[Environment] does not accept Commands directly from the Controller"),
+                                            Model::Environment => println!("[Environment] does not accept Commands from itself"),
+                                            Model::Unsupported => println!("[Environment] unsupported device"),
+                                            Model::Thermo5000 => {
 
-                        match model.map(|m| Model::parse(m)) {
-                            Some(Ok(model)) => {
-                                match model {
-                                    Model::Controller => println!("[Environment] does not accept Commands directly from the Controller"),
-                                    Model::Environment => println!("[Environment] does not accept Commands from itself"),
-                                    Model::Unsupported => println!("[Environment] unsupported device"),
-                                    Model::Thermo5000 => {
+                                                match message.body.as_ref().map(|b| Command::parse(b)) {
+                                                    Some(Ok(command)) => {
+                                                        println!("[Environment] successfully parsed command: {}", command);
 
-                                        match message.body.as_ref().map(|b| actuator_temperature::command::Command::parse(b)) {
-                                            Some(Ok(command)) => println!("[Environment] successfully parsed command: {}", command),
-                                            _ => println!("[Environment] could not parse \"{:?}\" as Thermo5000 Command", message.body)
+                                                        let mut attributes = attributes.lock().unwrap();
+
+                                                        let old_generator = attributes.remove(&id).unwrap();
+
+                                                        let unit = old_generator.unit;
+
+                                                        match command {
+                                                            Command::CoolTo(temp) => {
+
+                                                                println!("[Environment] cooling to {}", temp);
+
+                                                                let mut rng = thread_rng();
+
+                                                                let slope = rng.gen_range(-0.001..0.0); // arbitrarily selected range of slopes
+                                                                let noise = 0.0; // arbitrary selected range of noise values
+                                                                let generator = generator::time_dependent::f32_linear(slope, noise, unit);
+
+                                                                attributes.insert(id, old_generator + generator);
+                                                            }
+                                                            Command::HeatTo(temp) => {
+
+                                                                println!("[Environment] heating to {}", temp);
+
+                                                                let mut rng = thread_rng();
+
+                                                                let slope = rng.gen_range(0.0..0.001); // arbitrarily selected range of slopes
+                                                                let noise = 0.0; // arbitrary selected range of noise values
+                                                                let generator = generator::time_dependent::f32_linear(slope, noise, unit);
+
+                                                                attributes.insert(id, old_generator + generator);
+                                                            }
+                                                        }
+
+                                                    }
+                                                    _ => println!("[Environment] could not parse \"{:?}\" as Thermo5000 Command", message.body)
+                                                }
+
+                                            }
                                         }
-
                                     }
+                                    _ => println!("[Environment] cannot parse id or model"),
                                 }
                             }
-                            _ => println!("[Environment] cannot parse Model from string: {:?}", model)
+                            _ => println!(
+                                "[Environment] cannot parse headers to get appropriate data"
+                            ),
                         }
                     }
 
@@ -203,8 +245,8 @@ impl Environment {
                         generator::time_dependent::i32_linear(slope, noise, unit)
                     }
                     DatumValueType::Float => {
-                        let slope = rng.gen_range(-0.10..0.10); // arbitrarily selected range of slopes
-                        let noise = rng.gen_range(0.0..0.10); // arbitrary selected range of noise values
+                        let slope = rng.gen_range(-0.001..0.001); // arbitrarily selected range of slopes
+                        let noise = rng.gen_range(0.0..0.00001); // arbitrary selected range of noise values
                         generator::time_dependent::f32_linear(slope, noise, unit)
                     }
                 };

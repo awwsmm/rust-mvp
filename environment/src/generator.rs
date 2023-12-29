@@ -1,10 +1,12 @@
+use std::ops::Add;
+
 use chrono::{DateTime, Utc};
 
 use datum::{Datum, DatumUnit, DatumValue};
 
 pub struct DatumGenerator {
     generator: Box<dyn FnMut(DateTime<Utc>) -> DatumValue>,
-    unit: DatumUnit,
+    pub(crate) unit: DatumUnit,
 }
 
 unsafe impl Send for DatumGenerator {}
@@ -24,6 +26,29 @@ impl DatumGenerator {
         let generator = &mut self.generator;
         let value = (*generator)(now);
         Datum::new(value, self.unit, now)
+    }
+}
+
+impl Add for DatumGenerator {
+    type Output = DatumGenerator;
+
+    fn add(self, mut rhs: Self) -> Self::Output {
+        let mut lhs = self;
+
+        let unit = lhs.unit;
+
+        let composed_generator = move |t: DateTime<Utc>| -> DatumValue {
+            let a = (*lhs.generator)(t);
+            let b = (*rhs.generator)(t);
+
+            match (a, b) {
+                (DatumValue::Float(a), DatumValue::Float(b)) => DatumValue::Float(a + b),
+                (DatumValue::Int(a), DatumValue::Int(b)) => DatumValue::Int(a + b),
+                _ => panic!("[DatumGenerator] error during add operation"),
+            }
+        };
+
+        Self::new(Box::new(composed_generator), unit)
     }
 }
 
