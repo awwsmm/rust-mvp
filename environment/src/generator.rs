@@ -7,6 +7,10 @@ pub struct DatumGenerator {
     unit: DatumUnit,
 }
 
+unsafe impl Send for DatumGenerator {}
+
+unsafe impl Sync for DatumGenerator {}
+
 impl DatumGenerator {
     pub(crate) fn new(
         generator: Box<dyn FnMut(DateTime<Utc>) -> DatumValue>,
