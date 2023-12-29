@@ -1,8 +1,10 @@
-use mdns_sd::ServiceInfo;
+use std::collections::HashMap;
 use std::net::TcpStream;
 use std::time::Duration;
 
-use datum::Datum;
+use mdns_sd::ServiceInfo;
+
+use datum::{Datum, DatumUnit, DatumValueType};
 use device::message::Message;
 use device::{Device, Handler};
 
@@ -43,6 +45,10 @@ pub trait Sensor: Device {
                     let sender_name = self.get_name().to_string().clone();
                     let sender_address = self.get_address().clone();
 
+                    let self_id = self.get_id().to_string();
+                    let self_kind = self.get_datum_value_type().to_string();
+                    let self_unit = self.get_datum_unit().to_string();
+
                     let handler: Handler = Box::new(move |stream| {
                         if let Ok(request) = Self::ack_and_parse_request(
                             sender_name.clone(),
@@ -58,10 +64,18 @@ pub trait Sensor: Device {
                                 println!("[Sensor] connecting to Environment @ {}", env);
                                 let mut stream = TcpStream::connect(env).unwrap();
 
-                                println!("[Sensor] forwarding request to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
+                                let mut headers = HashMap::new();
+                                headers.insert("id".into(), self_id.clone());
+                                headers.insert("kind".into(), self_kind.clone());
+                                headers.insert("unit".into(), self_unit.clone());
 
-                                Message::ping(sender_name.clone(), sender_address.clone())
-                                    .send(&mut stream);
+                                let request = Message::ping_with_headers(
+                                    sender_name.clone(),
+                                    sender_address.clone(),
+                                    headers,
+                                );
+                                println!("[Sensor] forwarding request to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
+                                request.send(&mut stream);
                             } else {
                                 println!("[Sensor] received request from unhandled sender '{:?}'. Ignoring.", request.headers.get("sender_name"));
                             }
@@ -81,4 +95,8 @@ pub trait Sensor: Device {
     fn get_group() -> String {
         String::from("_sensor")
     }
+
+    fn get_datum_value_type(&self) -> DatumValueType;
+
+    fn get_datum_unit(&self) -> DatumUnit;
 }

@@ -80,6 +80,18 @@ impl Message {
         Message::new("GET / HTTP/1.1", headers, None)
     }
 
+    pub fn ping_with_headers(
+        sender_name: String,
+        sender_address: String,
+        headers: HashMap<String, String>,
+    ) -> Message {
+        let mut headers = headers.clone();
+        headers.insert("sender_name".into(), sender_name);
+        headers.insert("sender_address".into(), sender_address);
+
+        Message::new("GET / HTTP/1.1", headers, None)
+    }
+
     pub fn ack(sender_name: String, sender_address: String) -> Message {
         let mut headers = HashMap::new();
         headers.insert("sender_name".into(), sender_name);

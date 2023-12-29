@@ -133,61 +133,6 @@ impl Environment {
             }
         }
     }
-
-    // #[allow(dead_code)] // remove this ASAP
-    // pub fn handle_request(&mut self, message: &str) -> String {
-    //     if message.starts_with("POST /set/") {
-    //         // if the Environment gets a command from an actuator with a Device::Id that it is not
-    //         // yet aware of, it should ignore it
-    //
-    //         // Not complete, but this is the general idea
-    //         // Extract ID and command
-    //         let (id, command) = self.extract_command(message);
-    //         match self.execute_command(&id, &command) {
-    //             Some(datum) => format!("HTTP/1.1 200 OK\r\n\r\n{:?}", datum),
-    //             None => "HTTP/1.1 404 Not Found\r\n\r\n".to_string(),
-    //         }
-    //     } else if message.starts_with("GET /get/") {
-    //         // if the Environment gets a message from a sensor with a Device::Id that it is not
-    //         // yet aware of, it should save the Id and pick from a random data generator
-    //
-    //         let parsed = Environment::parse_get_request(message);
-    //
-    //         if let Ok((id, value_type, unit)) = parsed {
-    //             let datum = self.get(&id, value_type, unit);
-    //             format!("HTTP/1.1 200 OK\r\n\r\n{:?}", datum)
-    //         } else {
-    //             let msg = parsed.unwrap_err();
-    //             format!("HTTP/1.1 400 Bad Request\r\n\r\n{}", msg)
-    //         }
-    //     } else {
-    //         "HTTP/1.1 404 Not Found\r\n\r\n".to_string()
-    //     }
-    // }
-
-    // #[allow(dead_code)] // remove this ASAP
-    // fn parse_get_request(message: &str) -> Result<(Id, DatumValueType, DatumUnit), String> {
-    //     // example message: "GET /get/test_id/float/°C"
-    //     let mut parts = message.split('/');
-    //
-    //     parts.next(); // throw out "GET"
-    //     parts.next(); // throw out "get"
-    //
-    //     match (parts.next(), parts.next(), parts.next()) {
-    //         (Some(id), Some(value_type), Some(unit)) => {
-    //             match (DatumValueType::parse(value_type), DatumUnit::parse(unit)) {
-    //                 (Ok(value_type), Ok(unit)) => Ok((Id::new(id), value_type, unit)),
-    //                 (Ok(_), Err(msg)) => Err(msg),
-    //                 (Err(msg), Ok(_)) => Err(msg),
-    //                 (Err(msg1), Err(msg2)) => Err(format!("{}\n{}", msg1, msg2)),
-    //             }
-    //         }
-    //         _ => Err(format!(
-    //             "Cannot split {} into /get/<sensor_id>/<type>/<unit>",
-    //             message
-    //         )),
-    //     }
-    // }
 }
 
 #[cfg(test)]

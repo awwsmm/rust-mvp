@@ -78,6 +78,17 @@ pub enum DatumValueType {
     Int,
 }
 
+impl Display for DatumValueType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            DatumValueType::Bool => "bool",
+            DatumValueType::Float => "float",
+            DatumValueType::Int => "int",
+        };
+        write!(f, "{}", str)
+    }
+}
+
 impl DatumValueType {
     pub fn parse(string: &str) -> Result<DatumValueType, String> {
         if string == "bool" {
