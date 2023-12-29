@@ -16,7 +16,10 @@ pub mod message;
 pub mod model;
 pub mod name;
 
-pub type Handler = Box<dyn Fn(&mut TcpStream, Arc<ServiceDaemon>)>;
+// We want to avoid blocking req-res loops and instead model
+// all communication in a "fire and forget" manner. We never listen for responses.
+// So every message gets responded to with an ACK (200 OK).
+pub type Handler = Box<dyn Fn(&mut TcpStream)>;
 
 /// A `Device` exists on the network and is discoverable via mDNS.
 pub trait Device {
@@ -97,8 +100,18 @@ pub trait Device {
     }
 
     /// Reads a message from a `TcpStream` and parses it into the message line, headers, and body.
-    fn parse_http_request(stream: &TcpStream) -> Result<Message, String> {
-        Message::from(BufReader::new(stream))
+    fn ack_and_parse_request(
+        sender_name: String,
+        sender_address: String,
+        mut stream: &mut TcpStream,
+    ) -> Result<Message, String> {
+        let request = Message::from(BufReader::new(&mut stream));
+
+        // every HTTP request gets a 200 OK "ack" to close the HTTP socket
+        let response = Message::ack(sender_name, sender_address);
+        response.send(stream);
+
+        request
     }
 
     /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually
@@ -110,7 +123,7 @@ pub trait Device {
 
         for stream in listener.incoming() {
             let mut stream = stream.unwrap();
-            (*handler)(&mut stream, Arc::clone(&mdns));
+            (*handler)(&mut stream);
         }
     }
 

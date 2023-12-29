@@ -1,11 +1,14 @@
-use std::collections::HashMap;
+use mdns_sd::ServiceInfo;
+use std::net::TcpStream;
+use std::time::Duration;
 
 use datum::Datum;
-use device::message::Message;
 use device::{Device, Handler};
 
 /// A Sensor collects data from the Environment.
 pub trait Sensor: Device {
+    fn get_environment(&self) -> Option<ServiceInfo>;
+
     /// To get data out of a sensor, we call `get_datum()`.
     ///
     /// In the "real world", this would poll some actual physical sensor for a data point.
@@ -14,35 +17,55 @@ pub trait Sensor: Device {
     fn get_datum() -> Datum;
 
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
-    fn get_handler(&self) -> Handler {
-        let address = self.get_address().clone();
+    fn default_handler(&self) -> Handler {
+        loop {
+            // loop until there is an environment to forward requests to
+            match self.get_environment() {
+                None => {
+                    println!("[Sensor] could not find Environment");
+                    std::thread::sleep(Duration::from_secs(1));
+                    continue;
+                }
+                Some(env) => {
+                    println!("[Sensor] found Environment at {}", env.get_fullname());
 
-        Box::new(move |stream, _mdns| {
-            if let Ok(request) = Self::parse_http_request(stream) {
-                println!("[Sensor] received\n----------\n{}\n----------", request);
-                match request.headers.get("sender") {
-                    None => {
-                        println!("[Sensor] unable to handle request, cannot resolve sender")
-                    }
-                    Some(controller) if *controller == "controller" => {
-                        println!("[Sensor] handling request from Controller");
-                        let contents = Self::get_datum().to_string();
-                        let response = Message::respond_ok_with_body(
-                            address.clone(),
-                            HashMap::new(),
-                            contents.as_str(),
-                        );
+                    let sender_name = self.get_name().to_string().clone();
+                    let sender_address = self.get_address().clone();
 
-                        println!("[Sensor] sending response to Controller {}", response);
+                    let handler: Handler = Box::new(move |stream| {
+                        if let Ok(request) = Self::ack_and_parse_request(
+                            sender_name.clone(),
+                            sender_address.clone(),
+                            stream,
+                        ) {
+                            if request.headers.get("sender_name")
+                                == Some(&String::from("controller"))
+                            {
+                                println!("[Sensor] received request from Controller\n----------\n{}\n----------", request);
 
-                        response.send(stream);
-                    }
-                    Some(other) => {
-                        println!("[Sensor] ignoring request from {}", other)
-                    }
+                                let env = <Self as Device>::extract_address(&env);
+                                println!("[Sensor] connecting to Environment @ {}", env);
+                                let mut stream = TcpStream::connect(env).unwrap();
+
+                                println!(
+                                    "[Sensor] forwarding message as-is to Environment: {}",
+                                    request
+                                );
+                                request.send(&mut stream);
+                            } else {
+                                println!("[Sensor] received request from unhandled sender '{:?}'. Ignoring.", request.headers.get("sender_name"));
+                            }
+                        }
+                    });
+
+                    break handler;
                 }
             }
-        })
+        }
+    }
+
+    fn get_handler(&self) -> Handler {
+        self.default_handler()
     }
 
     fn get_group() -> String {

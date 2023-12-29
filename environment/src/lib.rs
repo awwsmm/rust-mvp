@@ -50,10 +50,15 @@ impl Device for Environment {
 
     // TODO Environment should respond to HTTP requests from Actuators and Sensors.
     fn get_handler(&self) -> Handler {
-        Box::new(|stream, _mdns| {
-            if let Ok(message) = Self::parse_http_request(stream) {
+        let sender_name = self.get_name().to_string().clone();
+        let sender_address = self.get_address().clone();
+
+        Box::new(move |stream| {
+            if let Ok(message) =
+                Self::ack_and_parse_request(sender_name.clone(), sender_address.clone(), stream)
+            {
                 println!(
-                    "[Environment] received\n----------\n{}\n----------",
+                    "[Environment] received message (ignoring for now)\n----------\n{}\n----------",
                     message
                 );
 

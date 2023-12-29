@@ -73,7 +73,7 @@ impl Actuator for TemperatureActuator {
         let lock = self.env.lock();
         let guard = lock.unwrap();
 
-        println!("!!! env: {:?}", guard.keys());
+        println!("[TemperatureActuator] env: {:?}", guard.keys());
 
         guard.get(&Id::new("environment")).cloned()
     }

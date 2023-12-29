@@ -54,13 +54,26 @@ impl Device for Controller {
         &self.address
     }
 
+    // TODO Controller should respond to HTTP requests from Sensors.
     fn get_handler(&self) -> Handler {
-        // Box::new(move |stream, mdns| {
-        //     if let Ok(message) = Self::parse_http_request(stream) {
-        //         println!("Controller received message: {}", message);
-        //     }
-        // })
-        Box::new(|_, _| ())
+        let sender_name = self.get_name().to_string().clone();
+        let sender_address = self.get_address().clone();
+
+        Box::new(move |stream| {
+            if let Ok(message) =
+                Self::ack_and_parse_request(sender_name.clone(), sender_address.clone(), stream)
+            {
+                println!(
+                    "[Controller] received message (ignoring for now)\n----------\n{}\n----------",
+                    message
+                );
+
+                // let contents = Self::get_datum().to_string();
+                // let message = Message::respond_ok_with_body(HashMap::new(), contents.as_str());
+
+                // stream.write_all(message.to_string().as_bytes()).unwrap();
+            }
+        })
     }
 
     fn start(
@@ -113,14 +126,14 @@ impl Controller {
     }
 
     /// Pings the latest `Sensor` so that it can (asynchronously) send a response containing the latest `Datum`.
-    pub fn ping_sensor(sender: String, info: &ServiceInfo) {
+    pub fn ping_sensor(sender_name: String, sender_address: String, info: &ServiceInfo) {
         let address = <Self as Device>::extract_address(info);
 
         let mut tcp_stream = TcpStream::connect(address).unwrap();
 
         // send the minimum possible payload. We only want to ping the Sensor
         // see: https://stackoverflow.com/a/9734866
-        let ping = Message::ping(sender);
+        let ping = Message::ping(sender_name, sender_address);
         ping.send(&mut tcp_stream);
     }
 
@@ -129,7 +142,8 @@ impl Controller {
         // let assessors = Arc::clone(&self.state.assessors);
         // let actuators_mutex = Arc::clone(&self.state.actuators);
 
-        let address = self.get_address().clone();
+        let sender_name = self.get_name().to_string().clone();
+        let sender_address = self.get_address().clone();
 
         std::thread::spawn(move || {
             println!(">>> [poll] SPAWNED A NEW THREAD");
@@ -154,7 +168,11 @@ impl Controller {
                         if let Some(Ok(model)) = Self::extract_model(service_info) {
                             if Self::is_supported(&model) {
                                 println!("[poll] pinging sensor with id {}", id);
-                                Self::ping_sensor(address.clone(), service_info);
+                                Self::ping_sensor(
+                                    sender_name.clone(),
+                                    sender_address.clone(),
+                                    service_info,
+                                );
 
                                 // println!(
                                 //     "[poll] assessing datum received from sensor (model={})",

@@ -2,9 +2,8 @@ use std::fmt::Display;
 use std::net::TcpStream;
 use std::time::Duration;
 
-use mdns_sd::{ServiceEvent, ServiceInfo};
+use mdns_sd::ServiceInfo;
 
-use device::message::Message;
 use device::{Device, Handler};
 
 /// An Actuator mutates the Environment.
@@ -17,62 +16,39 @@ pub trait Actuator: Device {
             // loop until there is an environment to forward commands to
             match self.get_environment() {
                 None => {
-                    println!("!!! could not find environment");
+                    println!("[Actuator] could not find Environment");
                     std::thread::sleep(Duration::from_secs(1));
                     continue;
                 }
-                Some(info) => {
-                    println!("!!! found environment at {}", info.get_fullname());
+                Some(env) => {
+                    println!("[Actuator] found Environment at {}", env.get_fullname());
 
-                    let sender = self.get_address().clone();
+                    let sender_name = self.get_name().to_string().clone();
+                    let sender_address = self.get_address().clone();
 
-                    let handler: Handler = Box::new(move |stream, mdns| {
-                        if let Ok(message) = Self::parse_http_request(stream) {
-                            // respond to Controller with OK
-                            println!("[Actuator] received\n----------\n{}\n----------", message);
-                            let ack = Message::ack(sender.clone());
-                            ack.send(stream);
+                    let handler: Handler = Box::new(move |stream| {
+                        if let Ok(request) = Self::ack_and_parse_request(
+                            sender_name.clone(),
+                            sender_address.clone(),
+                            stream,
+                        ) {
+                            if request.headers.get("sender_name")
+                                == Some(&String::from("controller"))
+                            {
+                                println!("[Actuator] received request from Controller\n----------\n{}\n----------", request);
 
-                            // and forward command as-is to Environment
-                            let service_type = "_environment._tcp.local.";
-                            let receiver = mdns.browse(service_type).unwrap();
+                                let env = <Self as Device>::extract_address(&env);
+                                println!("[Actuator] connecting to Environment @ {}", env);
+                                let mut stream = TcpStream::connect(env).unwrap();
 
-                            println!("FINDME about to enter while loop");
-
-                            while let Ok(event) = receiver.recv() {
-                                match event {
-                                    ServiceEvent::SearchStarted(_) => {
-                                        println!("FINDME -- found SearchStarted event")
-                                    }
-                                    ServiceEvent::ServiceFound(_, _) => {
-                                        println!("FINDME -- found ServiceFound event")
-                                    }
-                                    ServiceEvent::ServiceResolved(_) => {
-                                        println!("FINDME -- found ServiceResolved event")
-                                    }
-                                    ServiceEvent::ServiceRemoved(_, _) => {
-                                        println!("FINDME -- found ServiceRemoved event")
-                                    }
-                                    ServiceEvent::SearchStopped(_) => {
-                                        println!("FINDME -- found SearchStopped event")
-                                    }
-                                }
-
-                                // if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
-                                println!("[Actuator] found Environment, forwarding message");
-
-                                let address = <Self as Device>::extract_address(&info);
-
-                                println!("[Actuator] connecting to url {}", address);
-
-                                let mut stream = TcpStream::connect(address).unwrap();
-
-                                println!("[Actuator] sending message: {}", message);
-
-                                message.send(&mut stream);
+                                println!(
+                                    "[Actuator] forwarding message as-is to Environment: {}",
+                                    request
+                                );
+                                request.send(&mut stream);
+                            } else {
+                                println!("[Actuator] received request from unhandled sender '{:?}'. Ignoring.", request.headers.get("sender_name"));
                             }
-
-                            println!("FINDME exited while loop");
                         }
                     });
 

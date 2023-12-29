@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use uuid::Uuid;
 
-use actuator_temperature::TemperatureActuator;
 use controller::Controller;
 use device::id::Id;
 use device::name::Name;
@@ -30,8 +29,8 @@ fn main() {
     // here is the Sensor
     <TemperatureSensor as Device>::start(ip, 8787, id.clone(), name.clone(), Arc::clone(&mdns));
 
-    // here is the Actuator
-    <TemperatureActuator as Device>::start(ip, 9898, id.clone(), name.clone(), Arc::clone(&mdns));
+    // // here is the Actuator
+    // <TemperatureActuator as Device>::start(ip, 9898, id.clone(), name.clone(), Arc::clone(&mdns));
 
     // --------------------------------------------------------------------------------
     // spin up the controller

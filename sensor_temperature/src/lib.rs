@@ -15,7 +15,8 @@ use sensor::Sensor;
 pub struct TemperatureSensor {
     id: Id,
     name: Name,
-    pub env: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    environment: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    controller: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
     address: String,
 }
 
@@ -41,7 +42,7 @@ impl Device for TemperatureSensor {
     }
 
     fn get_handler(&self) -> Handler {
-        Sensor::get_handler(self)
+        self.default_handler()
     }
 
     fn start(
@@ -60,7 +61,8 @@ impl Device for TemperatureSensor {
             let device = Self::new(id, name, address);
 
             let mut targets = HashMap::new();
-            targets.insert("_controller".into(), &device.env);
+            targets.insert("_controller".into(), &device.controller);
+            targets.insert("_environment".into(), &device.environment);
 
             device.run(ip, port, "_sensor", targets, mdns);
         })
@@ -68,6 +70,15 @@ impl Device for TemperatureSensor {
 }
 
 impl Sensor for TemperatureSensor {
+    fn get_environment(&self) -> Option<ServiceInfo> {
+        let lock = self.environment.lock();
+        let guard = lock.unwrap();
+
+        println!("[TemperatureSensor] env: {:?}", guard.keys());
+
+        guard.get(&Id::new("environment")).cloned()
+    }
+
     fn get_datum() -> Datum {
         // TODO should query Environment
         Datum::new_now(25.0, DatumUnit::DegreesC)
@@ -79,7 +90,8 @@ impl TemperatureSensor {
         TemperatureSensor {
             id,
             name,
-            env: Arc::new(Mutex::new(HashMap::new())),
+            environment: Arc::new(Mutex::new(HashMap::new())),
+            controller: Arc::new(Mutex::new(HashMap::new())),
             address,
         }
     }
