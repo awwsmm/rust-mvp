@@ -68,6 +68,12 @@ impl Sensor for TemperatureSensor {
         guard.get(&Id::new("environment")).cloned()
     }
 
+    fn get_controller(&self) -> Option<ServiceInfo> {
+        let lock = self.controller.lock();
+        let guard = lock.unwrap();
+        guard.get(&Id::new("controller")).cloned()
+    }
+
     fn get_datum() -> Datum {
         // TODO should query Environment
         Datum::new_now(25.0, DatumUnit::DegreesC)
