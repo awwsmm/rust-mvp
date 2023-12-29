@@ -126,11 +126,10 @@ pub trait Device {
     fn respond(&self, ip: IpAddr, port: u16, group: &str, mdns: ServiceDaemon) {
         self.register(ip, port, group, mdns.clone());
         let listener = self.bind(ip, port);
-        let handler = self.get_handler();
 
         for stream in listener.incoming() {
             let mut stream = stream.unwrap();
-            (*handler)(&mut stream);
+            (*self.get_handler())(&mut stream);
         }
     }
 

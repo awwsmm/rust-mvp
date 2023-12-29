@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use mdns_sd::ServiceInfo;
 
+use datum::Datum;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
@@ -63,64 +64,79 @@ impl Device for Controller {
         let assessors = assessors.lock();
         let assessors = assessors.unwrap().clone();
 
+        let actuators = Arc::clone(&self.state.actuators);
+        let actuators = actuators.lock();
+        let actuators = actuators.unwrap().clone();
+
         Box::new(move |stream| {
-            if let Ok(message) =
+            if let Ok(request) =
                 Self::ack_and_parse_request(sender_name.clone(), sender_address.clone(), stream)
             {
                 println!(
                     "[Controller] received message (ignoring for now)\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
-                    message
+                    request
                 );
 
-                println!(
-                    "[Controller] available assessors: {:?}",
-                    assessors.keys().map(|each| each.to_string())
-                );
-
-                let id = Id::new(message.headers.get("id").unwrap());
-                let model = Model::parse(message.headers.get("model").unwrap()).unwrap();
-
-                if let Some(_assessor) = assessors
-                    .get(&id)
-                    .or_else(|| DEFAULT_ASSESSOR.get(model.id().as_str()))
-                {
-                    println!("[Controller] found assessor")
-
-                //     match datum {
-                //         Err(msg) => {
-                //             println!("unable to read sensor due to: {}", msg)
-                //         }
-                //         Ok(datum) => {
-                //             println!(
-                //                 "[poll] successfully received datum from sensor: {}",
-                //                 datum
-                //             );
-                //
-                //             let command = (assessor.assess)(&datum);
-                //
-                //             if let Some(command) = command {
-                //                 let command_str = command.to_string();
-                //
-                //                 println!(
-                //                     "[poll] sending command [{}] to actuator",
-                //                     command_str
-                //                 );
-                //
-                //                 if let Some(actuator) = actuators.get(id) {
-                //                     State::send_command(
-                //                         actuator,
-                //                         command_str.as_str(),
-                //                     );
-                //                 }
-                //             }
-                //         }
-                //     }
-                } else {
+                if request.headers.get("sender_name") == Some(&String::from("Web App")) {
                     println!(
-                        "[Controller] assessor does not contain id: {}\nknown ids: {:?}",
-                        id,
-                        assessors.keys()
-                    )
+                        "[Controller] received request from Web App\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
+                        request
+                    );
+                } else {
+                    println!("[Controller] received request from (what is assumed to be a) Sensor\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
+
+                    println!(
+                        "[Controller] available assessors: {:?}",
+                        assessors.keys().map(|each| each.to_string())
+                    );
+
+                    let id = Id::new(request.headers.get("id").unwrap());
+                    let model = Model::parse(request.headers.get("model").unwrap()).unwrap();
+
+                    if let Some(assessor) = assessors
+                        .get(&id)
+                        .or_else(|| DEFAULT_ASSESSOR.get(model.id().as_str()))
+                    {
+                        println!("[Controller] found assessor");
+
+                        let datum = Datum::parse(request.body.unwrap().as_str()).unwrap();
+
+                        println!("[Controller] parsed Datum from request body: {}", datum);
+
+                        match (assessor.assess)(&datum) {
+                            None => println!("[Controller] assessed Datum, but will not produce Command for Actuator"),
+                            Some(command) => {
+                                println!(
+                                    "[Controller] sending command to Actuator: {}",
+                                    command
+                                );
+
+                                match actuators.get(&id) {
+                                    None => println!("[Controller] cannot find Actuator with id: {}", id),
+                                    Some(actuator) => {
+                                        let actuator = <Self as Device>::extract_address(actuator);
+                                        println!("[Sensor] connecting to Actuator @ {}", actuator);
+
+                                        let mut stream = TcpStream::connect(actuator).unwrap();
+
+                                        let command = Message::ping_with_body(sender_name.clone(), sender_address.clone(), Some(command.to_string()));
+
+                                        println!("[Controller] sending Command to Actuator\nvvvvvvvvvv\n{}\n^^^^^^^^^^", command);
+
+                                        command.send(&mut stream);
+
+                                    }
+                                }
+
+                            }
+                        }
+                    } else {
+                        println!(
+                            "[Controller] assessor does not contain id: {}\nknown ids: {:?}",
+                            id,
+                            assessors.keys()
+                        )
+                    }
                 }
             }
         })
