@@ -3,6 +3,7 @@ use std::net::TcpStream;
 use std::time::Duration;
 
 use datum::Datum;
+use device::message::Message;
 use device::{Device, Handler};
 
 /// A Sensor collects data from the Environment.
@@ -57,8 +58,10 @@ pub trait Sensor: Device {
                                 println!("[Sensor] connecting to Environment @ {}", env);
                                 let mut stream = TcpStream::connect(env).unwrap();
 
-                                println!("[Sensor] forwarding message as-is to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
-                                request.send(&mut stream);
+                                println!("[Sensor] forwarding request to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
+
+                                Message::ping(sender_name.clone(), sender_address.clone())
+                                    .send(&mut stream);
                             } else {
                                 println!("[Sensor] received request from unhandled sender '{:?}'. Ignoring.", request.headers.get("sender_name"));
                             }

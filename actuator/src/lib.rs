@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use mdns_sd::ServiceInfo;
 
+use device::message::Message;
 use device::{Device, Handler};
 
 /// An Actuator mutates the Environment.
@@ -51,8 +52,9 @@ pub trait Actuator: Device {
                                 println!("[Actuator] connecting to Environment @ {}", env);
                                 let mut stream = TcpStream::connect(env).unwrap();
 
-                                println!("[Actuator] forwarding message as-is to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
-                                request.send(&mut stream);
+                                println!("[Actuator] forwarding request to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
+                                Message::ping(sender_name.clone(), sender_address.clone())
+                                    .send(&mut stream);
                             } else {
                                 println!("[Actuator] received request from unhandled sender '{:?}'. Ignoring.", request.headers.get("sender_name"));
                             }
