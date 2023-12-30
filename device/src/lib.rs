@@ -42,7 +42,7 @@ pub trait Device {
     fn register(&self, ip: IpAddr, port: u16, group: &str, mdns: ServiceDaemon) {
         let host = ip.clone().to_string();
         let label = self.get_name().to_string();
-        let name = format!("{}.{}", self.get_id(), Self::get_model().id());
+        let name = format!("{}.{}", self.get_id(), Self::get_model());
         let domain = format!("{}._tcp.local.", group);
 
         println!(
@@ -53,7 +53,7 @@ pub trait Device {
         let mut properties = HashMap::new();
         properties.insert(String::from("id"), self.get_id().to_string());
         properties.insert(String::from("name"), self.get_name().to_string());
-        properties.insert(String::from("model"), Self::get_model().id());
+        properties.insert(String::from("model"), Self::get_model().to_string());
 
         let my_service = ServiceInfo::new(
             domain.as_str(),

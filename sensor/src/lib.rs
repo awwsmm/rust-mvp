@@ -55,7 +55,7 @@ pub trait Sensor: Device {
                     let sender_address = self.get_address().clone();
 
                     let self_id = self.get_id().to_string();
-                    let self_model = Self::get_model().id();
+                    let self_model = Self::get_model().to_string();
                     let self_kind = self.get_datum_value_type().to_string();
                     let self_unit = self.get_datum_unit().to_string();
 

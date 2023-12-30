@@ -36,7 +36,7 @@ pub trait Actuator: Device {
                     );
 
                     let self_id = self.get_id().to_string();
-                    let self_model = Self::get_model().id();
+                    let self_model = Self::get_model().to_string();
 
                     let sender_name = self.get_name().to_string().clone();
                     let sender_address = self.get_address().clone();

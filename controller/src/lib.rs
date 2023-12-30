@@ -91,7 +91,7 @@ impl Device for Controller {
 
                     if let Some(assessor) = assessors
                         .get(&id)
-                        .or_else(|| DEFAULT_ASSESSOR.get(model.id().as_str()))
+                        .or_else(|| DEFAULT_ASSESSOR.get(model.to_string().as_str()))
                     {
                         println!("[Controller] found assessor");
 
@@ -171,7 +171,7 @@ impl Controller {
     }
 
     fn is_supported(model: &Model) -> bool {
-        DEFAULT_ASSESSOR.contains_key(model.id().as_str())
+        DEFAULT_ASSESSOR.contains_key(model.to_string().as_str())
     }
 
     /// Pings the latest `Sensor` so that it can (asynchronously) send a response containing the latest `Datum`.
