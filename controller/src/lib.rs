@@ -47,10 +47,6 @@ impl Device for Controller {
         Model::Controller
     }
 
-    fn get_group() -> String {
-        String::from("_controller")
-    }
-
     fn get_address(&self) -> &String {
         &self.address
     }

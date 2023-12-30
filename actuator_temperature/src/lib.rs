@@ -33,10 +33,6 @@ impl Device for TemperatureActuator {
         Model::Thermo5000
     }
 
-    fn get_group() -> String {
-        <Self as Actuator>::get_group()
-    }
-
     fn get_address(&self) -> &String {
         &self.address
     }

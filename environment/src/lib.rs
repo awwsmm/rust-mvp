@@ -42,10 +42,6 @@ impl Device for Environment {
         Model::Environment
     }
 
-    fn get_group() -> String {
-        String::from("_environment")
-    }
-
     fn get_address(&self) -> &String {
         &self.address
     }

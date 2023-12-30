@@ -32,19 +32,6 @@ pub trait Device {
     /// Returns the model of this `Device`, which may or may not be supported by the `Controller`.
     fn get_model() -> Model;
 
-    /// Returns the mDNS group of this `Device`, i.e. "_sensor", "_actuator", etc.
-    fn get_group() -> String;
-
-    /// Returns the full mDNS name of this `Device` (e.g. "id._model._group._tcp.local.")
-    fn get_fullname(&self) -> String {
-        format!(
-            "{}.{}.{}._tcp.local.",
-            self.get_id(),
-            Self::get_model().id(),
-            Self::get_group()
-        )
-    }
-
     /// Returns the ip:port of this `Device` (e.g. "192.168.1.251:8787').
     fn get_address(&self) -> &String;
 

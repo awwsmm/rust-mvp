@@ -62,13 +62,6 @@ impl Message {
 
         let message = Message::new(message.trim(), headers, body);
 
-        // println!(
-        //     "[parse_http_request] received\n==========\nmessage line: {}\nheaders: {:?}\nbody:\n----------\n{:?}\n==========",
-        //     message.request_line.trim(),
-        //     message.headers,
-        //     message.body.as_ref().unwrap_or(&String::new())
-        // );
-
         Ok(message)
     }
 

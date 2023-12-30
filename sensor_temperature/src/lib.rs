@@ -35,10 +35,6 @@ impl Device for TemperatureSensor {
         Model::Thermo5000
     }
 
-    fn get_group() -> String {
-        <Self as Sensor>::get_group()
-    }
-
     fn get_address(&self) -> &String {
         &self.address
     }

@@ -125,10 +125,6 @@ pub trait Sensor: Device {
         self.default_handler()
     }
 
-    fn get_group() -> String {
-        String::from("_sensor")
-    }
-
     fn get_datum_value_type(&self) -> Kind;
 
     fn get_datum_unit(&self) -> Unit;
