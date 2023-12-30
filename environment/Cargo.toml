@@ -9,7 +9,7 @@ edition = "2021"
 actuator_temperature = { path = "../actuator_temperature" }
 datum = { path = "../datum" }
 device = { path = "../device" }
-chrono = { version = "0.4.31", features = [] }
 
+chrono = { version = "0.4.31", features = [] }
 mdns-sd = "0.10.1"
 rand = "0.8.5"

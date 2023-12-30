@@ -1,6 +1,16 @@
 # rust-mvp
 
-This Rust IoT MVP was written over just 5 days by a team of 3-4 developers.
+This Rust IoT project began its life as a 5-day MVP with a team of 3 developers.
+
+This fork takes that initial work and builds on it significantly.
+
+`rust-mvp` is nearly dependency-free, it only requires five crates beyond the standard library
+
+1. [`mdns-sd`](https://github.com/keepsimple1/mdns-sd) for mDNS networking
+2. [`chrono`](https://github.com/chronotope/chrono) for UTC timestamps and timestamp de/serialization
+3. [`rand`](https://github.com/rust-random/rand) for random number generation
+4. [`local-ip-address`](https://github.com/EstebanBorai/local-ip-address) for local IP address discovery
+5. [`phf`](https://github.com/rust-phf/rust-phf) for compile-time static `Map`s
 
 ## crates
 
