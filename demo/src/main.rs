@@ -19,7 +19,7 @@ fn main() {
     // --------------------------------------------------------------------------------
 
     // id has to be the same for the sensor and its corresponding actuator, name does not
-    let id = Id::new(&Uuid::new_v4().to_string());
+    let id = Id::new(Uuid::new_v4());
 
     // here is the Sensor
     <TemperatureSensor as Device>::start(ip, 8787, id.clone(), Name::new("My Thermo-5000 Sensor"));

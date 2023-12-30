@@ -214,7 +214,7 @@ impl Controller {
                                     service_info,
                                 );
                             } else {
-                                println!("[poll] unsupported Model: {}", model.name())
+                                println!("[poll] unsupported Model: {:?}", service_info)
                             }
                         } else {
                             println!("[poll] could not find property 'model' in ServiceInfo")

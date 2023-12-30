@@ -27,15 +27,15 @@ impl Model {
         }
         .into()
     }
-
-    /// Returns a user-friendly name for this `Model`.
-    pub fn name(&self) -> String {
-        match self {
-            Model::Controller => "Controller",
-            Model::Environment => "Environment",
-            Model::Unsupported => "<unsupported>",
-            Model::Thermo5000 => "Thermo-5000",
-        }
-        .into()
-    }
 }
+//
+// #[cfg(test)]
+// mod device_id_tests {
+//     use super::*;
+//
+//     #[test]
+//     fn test_display() {
+//
+//     }
+//
+// }

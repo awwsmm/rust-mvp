@@ -10,6 +10,24 @@ pub struct Message {
     pub body: Option<String>,
 }
 
+impl Display for Message {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let headers = self.headers.iter().map(|(k, v)| format!("{}: {}", k, v));
+        let headers = headers.collect::<Vec<String>>().join("\r\n");
+        let headers = if headers.is_empty() {
+            String::from("")
+        } else {
+            format!("{}\r\n", headers)
+        };
+        let body = &self
+            .body
+            .as_ref()
+            .map(|b| format!("\r\n{}\r\n", b))
+            .unwrap_or(String::from(""));
+        write!(f, "{}\r\n{}{}\r\n", self.request_line.trim(), headers, body)
+    }
+}
+
 impl Message {
     fn new(request_line: &str, headers: HashMap<String, String>, body: Option<String>) -> Message {
         let mut headers = headers.clone();
@@ -106,56 +124,8 @@ impl Message {
         Message::new("HTTP/1.1 200 OK", headers, None)
     }
 
-    pub fn respond_ok(
-        sender_name: String,
-        sender_address: String,
-        headers: HashMap<String, String>,
-        body: Option<String>,
-    ) -> Message {
-        let mut headers = headers.clone();
-        headers.insert("sender_name".into(), sender_name);
-        headers.insert("sender_address".into(), sender_address);
-
-        Message::new("HTTP/1.1 200 OK", headers, body)
-    }
-
-    pub fn respond_ok_with_body(
-        sender_name: String,
-        sender_address: String,
-        headers: HashMap<String, String>,
-        body: &str,
-    ) -> Message {
-        let mut headers = headers.clone();
-        headers.insert("Content-Length".into(), body.len().to_string());
-
-        Self::respond_ok(
-            sender_name,
-            sender_address,
-            headers,
-            Some(String::from(body)),
-        )
-    }
-
     pub fn send(&self, tcp_stream: &mut TcpStream) {
         tcp_stream.write_all(self.to_string().as_bytes()).unwrap();
-    }
-}
-
-impl Display for Message {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let headers = self.headers.iter().map(|(k, v)| format!("{}: {}", k, v));
-        let headers = headers.collect::<Vec<String>>().join("\r\n");
-        let headers = if headers.is_empty() {
-            String::from("")
-        } else {
-            format!("{}\r\n", headers)
-        };
-        let body = &self
-            .body
-            .as_ref()
-            .map(|b| format!("\r\n{}\r\n", b))
-            .unwrap_or(String::from(""));
-        write!(f, "{}\r\n{}{}\r\n", self.request_line.trim(), headers, body)
     }
 }
 
@@ -176,75 +146,5 @@ mod message_tests {
 
         assert!(serialized.contains("\r\nsender_name: My Device\r\n"));
         assert!(serialized.contains("\r\nsender_address: 123.234.210.123:12345\r\n"));
-    }
-
-    #[test]
-    fn test_ok() {
-        let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
-        let headers = HashMap::new();
-        let body = "Hello, World!";
-        let message = Message::respond_ok(
-            sender_name.into(),
-            sender_address.into(),
-            headers,
-            Some(body.into()),
-        );
-
-        let serialized = message.to_string();
-
-        assert!(serialized.starts_with("HTTP/1.1 200 OK\r\n"));
-        assert!(serialized.ends_with("\r\n\r\n"));
-
-        assert!(serialized.contains("\r\nsender_name: My Device\r\n"));
-        assert!(serialized.contains("\r\nsender_address: 123.234.210.123:12345\r\n"));
-
-        assert!(serialized.contains("\r\n\r\nHello, World!\r\n\r\n"));
-    }
-
-    #[test]
-    fn test_ok_with_headers() {
-        let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
-        let mut headers = HashMap::new();
-        headers.insert("key".into(), "value".into());
-        let body = "Hello, World!";
-        let message = Message::respond_ok(
-            sender_name.into(),
-            sender_address.into(),
-            headers,
-            Some(body.into()),
-        );
-
-        let serialized = message.to_string();
-
-        assert!(serialized.starts_with("HTTP/1.1 200 OK\r\n"));
-        assert!(serialized.ends_with("\r\n\r\n"));
-
-        assert!(serialized.contains("\r\nsender_name: My Device\r\n"));
-        assert!(serialized.contains("\r\nsender_address: 123.234.210.123:12345\r\n"));
-        assert!(serialized.contains("\r\nkey: value\r\n"));
-
-        assert!(serialized.contains("\r\n\r\nHello, World!\r\n\r\n"));
-    }
-
-    #[test]
-    fn test_ok_with_body() {
-        let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
-        let headers = HashMap::new();
-        let body = "Hello, World!";
-        let message =
-            Message::respond_ok_with_body(sender_name.into(), sender_address.into(), headers, body);
-
-        let serialized = message.to_string();
-
-        assert!(serialized.starts_with("HTTP/1.1 200 OK\r\n"));
-        assert!(serialized.ends_with("\r\n\r\n"));
-
-        assert!(serialized.contains("\r\nsender_name: My Device\r\n"));
-        assert!(serialized.contains("\r\nsender_address: 123.234.210.123:12345\r\n"));
-
-        assert!(serialized.contains("\r\n\r\nHello, World!\r\n\r\n"));
     }
 }
