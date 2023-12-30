@@ -1,7 +1,7 @@
 use phf::{phf_map, Map};
 
+use datum::unit::Unit;
 use datum::Datum;
-use datum::DatumUnit;
 
 #[allow(dead_code)] // FIXME remove ASAP
 #[derive(Clone)]
@@ -17,7 +17,7 @@ pub static DEFAULT_ASSESSOR: Map<&str, Assessor> = phf_map! {
     "thermo5000" => Assessor { assess: |datum| {
 
         let t = datum.get_as_float().unwrap();
-        assert_eq!(datum.unit, DatumUnit::DegreesC);
+        assert_eq!(datum.unit, Unit::DegreesC);
 
         if t > 28.0 {
             Some(Box::new(actuator_temperature::command::Command::CoolTo(25.0)))

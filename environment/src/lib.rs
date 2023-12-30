@@ -6,7 +6,9 @@ use std::thread::JoinHandle;
 use rand::{thread_rng, Rng};
 
 use actuator_temperature::command::Command;
-use datum::{Datum, DatumUnit, DatumValueType};
+use datum::kind::Kind;
+use datum::unit::Unit;
+use datum::Datum;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
@@ -73,11 +75,7 @@ impl Device for Environment {
                             message.headers.get("unit"),
                         ) {
                             (Some(id), Some(kind), Some(unit)) => {
-                                match (
-                                    Id::new(id),
-                                    DatumValueType::parse(kind),
-                                    DatumUnit::parse(unit),
-                                ) {
+                                match (Id::new(id), Kind::parse(kind), Unit::parse(unit)) {
                                     (id, Ok(kind), Ok(unit)) => {
                                         let datum = Self::get(attributes.clone(), &id, kind, unit);
 
@@ -225,8 +223,8 @@ impl Environment {
     fn get(
         attributes: Arc<Mutex<HashMap<Id, DatumGenerator>>>,
         id: &Id,
-        kind: DatumValueType,
-        unit: DatumUnit,
+        kind: Kind,
+        unit: Unit,
     ) -> Datum {
         let mut attributes = attributes.lock().unwrap();
         match attributes.get_mut(id) {
@@ -235,16 +233,16 @@ impl Environment {
                 // we need to return the type (bool, f32, i32) of data the Sensor expects
                 let mut rng = thread_rng();
                 let generator = match kind {
-                    DatumValueType::Bool => {
+                    Kind::Bool => {
                         let initial = false; // first value returned
                         generator::bool_alternating(initial, unit)
                     }
-                    DatumValueType::Int => {
+                    Kind::Int => {
                         let slope = rng.gen_range(-10..10); // arbitrarily selected range of slopes
                         let noise = rng.gen_range(0..2); // arbitrary selected range of noise values
                         generator::time_dependent::i32_linear(slope, noise, unit)
                     }
-                    DatumValueType::Float => {
+                    Kind::Float => {
                         let slope = rng.gen_range(-0.001..0.001); // arbitrarily selected range of slopes
                         let noise = rng.gen_range(0.0..0.00001); // arbitrary selected range of noise values
                         generator::time_dependent::f32_linear(slope, noise, unit)

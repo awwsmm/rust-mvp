@@ -5,7 +5,9 @@ use std::thread::JoinHandle;
 
 use mdns_sd::ServiceInfo;
 
-use datum::{Datum, DatumUnit, DatumValueType};
+use datum::kind::Kind;
+use datum::unit::Unit;
+use datum::Datum;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
@@ -76,15 +78,15 @@ impl Sensor for TemperatureSensor {
 
     fn get_datum() -> Datum {
         // TODO should query Environment
-        Datum::new_now(25.0, DatumUnit::DegreesC)
+        Datum::new_now(25.0, Unit::DegreesC)
     }
 
-    fn get_datum_value_type(&self) -> DatumValueType {
-        DatumValueType::Float
+    fn get_datum_value_type(&self) -> Kind {
+        Kind::Float
     }
 
-    fn get_datum_unit(&self) -> DatumUnit {
-        DatumUnit::DegreesC
+    fn get_datum_unit(&self) -> Unit {
+        Unit::DegreesC
     }
 }
 

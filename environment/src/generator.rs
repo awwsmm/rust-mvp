@@ -2,11 +2,13 @@ use std::ops::Add;
 
 use chrono::{DateTime, Utc};
 
-use datum::{Datum, DatumUnit, DatumValue};
+use datum::unit::Unit;
+use datum::value::Value;
+use datum::Datum;
 
 pub struct DatumGenerator {
-    generator: Box<dyn FnMut(DateTime<Utc>) -> DatumValue>,
-    pub(crate) unit: DatumUnit,
+    generator: Box<dyn FnMut(DateTime<Utc>) -> Value>,
+    pub(crate) unit: Unit,
 }
 
 unsafe impl Send for DatumGenerator {}
@@ -15,8 +17,8 @@ unsafe impl Sync for DatumGenerator {}
 
 impl DatumGenerator {
     pub(crate) fn new(
-        generator: Box<dyn FnMut(DateTime<Utc>) -> DatumValue>,
-        unit: DatumUnit,
+        generator: Box<dyn FnMut(DateTime<Utc>) -> Value>,
+        unit: Unit,
     ) -> DatumGenerator {
         DatumGenerator { generator, unit }
     }
@@ -37,13 +39,13 @@ impl Add for DatumGenerator {
 
         let unit = lhs.unit;
 
-        let composed_generator = move |t: DateTime<Utc>| -> DatumValue {
+        let composed_generator = move |t: DateTime<Utc>| -> Value {
             let a = (*lhs.generator)(t);
             let b = (*rhs.generator)(t);
 
             match (a, b) {
-                (DatumValue::Float(a), DatumValue::Float(b)) => DatumValue::Float(a + b),
-                (DatumValue::Int(a), DatumValue::Int(b)) => DatumValue::Int(a + b),
+                (Value::Float(a), Value::Float(b)) => Value::Float(a + b),
+                (Value::Int(a), Value::Int(b)) => Value::Int(a + b),
                 _ => panic!("[DatumGenerator] error during add operation"),
             }
         };
@@ -56,45 +58,46 @@ pub mod time_dependent {
     use chrono::{DateTime, Utc};
     use rand::{thread_rng, Rng};
 
-    use datum::{DatumUnit, DatumValue};
+    use datum::unit::Unit;
+    use datum::value::Value;
 
     use crate::generator::DatumGenerator;
 
-    pub fn f32_linear(slope: f32, noise: f32, unit: DatumUnit) -> DatumGenerator {
+    pub fn f32_linear(slope: f32, noise: f32, unit: Unit) -> DatumGenerator {
         let start = Utc::now().timestamp_millis();
         let mut rng = thread_rng();
 
-        let f = move |now: DateTime<Utc>| -> DatumValue {
+        let f = move |now: DateTime<Utc>| -> Value {
             // converting i64 to f32 is safe as long as this demo is running for < 9.4e28 hours
             let delta = (now.timestamp_millis() - start) as f32;
             let noise_factor = rng.gen_range(-1.0..1.0) * noise;
-            DatumValue::Float(delta * slope + noise_factor)
+            Value::Float(delta * slope + noise_factor)
         };
 
         DatumGenerator::new(Box::new(f), unit)
     }
 
-    pub fn i32_linear(slope: i32, noise: i32, unit: DatumUnit) -> DatumGenerator {
+    pub fn i32_linear(slope: i32, noise: i32, unit: Unit) -> DatumGenerator {
         let start = Utc::now().timestamp_millis();
         let mut rng = thread_rng();
 
-        let f = move |now: DateTime<Utc>| -> DatumValue {
+        let f = move |now: DateTime<Utc>| -> Value {
             // truncating i64 to i32 is safe as long as this demo is running for < 596.5 hours
             let delta = (now.timestamp_millis() - start) as i32;
             let noise_factor = rng.gen_range(-1..1) * noise;
-            DatumValue::Int(delta * slope + noise_factor)
+            Value::Int(delta * slope + noise_factor)
         };
 
         DatumGenerator::new(Box::new(f), unit)
     }
 }
 
-pub fn bool_alternating(initial: bool, unit: DatumUnit) -> DatumGenerator {
+pub fn bool_alternating(initial: bool, unit: Unit) -> DatumGenerator {
     let mut latest_value = !initial;
 
-    let f = move |_| -> DatumValue {
+    let f = move |_| -> Value {
         latest_value = !latest_value;
-        DatumValue::Bool(latest_value)
+        Value::Bool(latest_value)
     };
 
     DatumGenerator::new(Box::new(f), unit)
@@ -106,15 +109,13 @@ mod generator_tests {
 
     use chrono::Duration;
 
-    use datum::DatumUnit;
-
     use super::*;
 
     #[test]
     /// Slope is positive -- tests that a value generated earlier is less than a value generated later
     fn test_f32_linear_positive_slope() {
         let slope = 1.0;
-        let mut generator = time_dependent::f32_linear(slope, 0.0, DatumUnit::DegreesC);
+        let mut generator = time_dependent::f32_linear(slope, 0.0, Unit::DegreesC);
 
         // generate a datum, wait, then generate another
         let earlier = generator.generate();
@@ -129,7 +130,7 @@ mod generator_tests {
     /// Slope is negative -- tests that a value generated earlier is greater than a value generated later
     fn test_f32_linear_negative_slope() {
         let slope = -1.0;
-        let mut generator = time_dependent::f32_linear(slope, 0.0, DatumUnit::DegreesC);
+        let mut generator = time_dependent::f32_linear(slope, 0.0, Unit::DegreesC);
 
         // generate a datum, wait, then generate another
         let earlier = generator.generate();
@@ -144,7 +145,7 @@ mod generator_tests {
     /// Slope is positive -- tests that a value generated earlier is less than a value generated later
     fn test_i32_linear_positive_slope() {
         let slope = 1;
-        let mut generator = time_dependent::i32_linear(slope, 0, DatumUnit::DegreesC);
+        let mut generator = time_dependent::i32_linear(slope, 0, Unit::DegreesC);
 
         // generate a datum, wait, then generate another
         let earlier = generator.generate();
@@ -159,7 +160,7 @@ mod generator_tests {
     /// Slope is negative -- tests that a value generated earlier is greater than a value generated later
     fn test_i32_linear_negative_slope() {
         let slope = -1;
-        let mut generator = time_dependent::i32_linear(slope, 0, DatumUnit::DegreesC);
+        let mut generator = time_dependent::i32_linear(slope, 0, Unit::DegreesC);
 
         // generate a datum, wait, then generate another
         let earlier = generator.generate();
@@ -173,7 +174,7 @@ mod generator_tests {
     #[test]
     fn test_bool_alternating() {
         let initial = false;
-        let mut generator = bool_alternating(initial, DatumUnit::DegreesC);
+        let mut generator = bool_alternating(initial, Unit::DegreesC);
 
         // generate a datum, then generate another, and another
         let first = generator.generate();

@@ -4,7 +4,9 @@ use std::time::Duration;
 
 use mdns_sd::ServiceInfo;
 
-use datum::{Datum, DatumUnit, DatumValueType};
+use datum::kind::Kind;
+use datum::unit::Unit;
+use datum::Datum;
 use device::message::Message;
 use device::{Device, Handler};
 
@@ -127,7 +129,7 @@ pub trait Sensor: Device {
         String::from("_sensor")
     }
 
-    fn get_datum_value_type(&self) -> DatumValueType;
+    fn get_datum_value_type(&self) -> Kind;
 
-    fn get_datum_unit(&self) -> DatumUnit;
+    fn get_datum_unit(&self) -> Unit;
 }
