@@ -25,7 +25,6 @@ mod generator;
 pub struct Environment {
     name: Name,
     id: Id,
-    #[allow(dead_code)] // remove this ASAP
     attributes: Arc<Mutex<HashMap<Id, DatumGenerator>>>,
     address: String,
 }
@@ -213,13 +212,6 @@ impl Environment {
         Self::start(ip, port, Id::new("environment"), Name::new("Environment"))
     }
 
-    #[allow(dead_code)] // remove this ASAP
-    fn set(&self, id: Id, generator: DatumGenerator) {
-        let mut attributes = self.attributes.lock().unwrap();
-        attributes.insert(id, generator);
-    }
-
-    #[allow(dead_code)] // remove this ASAP
     fn get(
         attributes: Arc<Mutex<HashMap<Id, DatumGenerator>>>,
         id: &Id,
