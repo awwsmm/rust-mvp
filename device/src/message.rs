@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::io::{BufRead, Write};
 
+use crate::address::Address;
+
 /// `Device`s communicate by sending and receiving `Message`s.
 ///
 /// **Design Decision**: in this codebase, `Message`s are HTTP requests. All communication happens asynchronously via
@@ -60,10 +62,10 @@ impl Message {
     }
 
     /// Creates a simple `GET` message to ping one `Device` from another.
-    pub fn ping(sender_name: &str, sender_address: &str) -> Message {
+    pub fn ping(sender_name: &str, sender_address: Address) -> Message {
         let mut headers = HashMap::new();
         headers.insert("sender_name".into(), sender_name.into());
-        headers.insert("sender_address".into(), sender_address.into());
+        headers.insert("sender_address".into(), sender_address.to_string());
         Message::new("GET / HTTP/1.1", headers, None)
     }
 
@@ -85,7 +87,7 @@ impl Message {
     }
 
     /// Creates a simple `200 OK` response to acknowledge the receipt of a `Message`.
-    pub fn ack(sender_name: &str, sender_address: &str) -> Message {
+    pub fn ack(sender_name: &str, sender_address: Address) -> Message {
         let mut message = Message::ping(sender_name, sender_address);
         message.request_line = "HTTP/1.1 200 OK".into();
         message
@@ -140,12 +142,14 @@ impl Message {
 
 #[cfg(test)]
 mod message_tests {
+    use std::net::IpAddr;
+
     use super::*;
 
     #[test]
     fn test_ping() {
         let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
+        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
 
         let message = Message::ping(sender_name, sender_address);
         let actual = message.to_string();
@@ -163,7 +167,7 @@ mod message_tests {
     #[test]
     fn test_ping_with_headers() {
         let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
+        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
 
         let message = Message::ping(sender_name, sender_address);
 
@@ -187,7 +191,7 @@ mod message_tests {
     #[test]
     fn test_ping_with_body() {
         let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
+        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
 
         let message = Message::ping(sender_name, sender_address);
 
@@ -212,7 +216,7 @@ mod message_tests {
     #[test]
     fn test_ping_with_headers_with_body() {
         let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
+        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
 
         let message = Message::ping(sender_name, sender_address);
 
@@ -240,7 +244,7 @@ mod message_tests {
     #[test]
     fn test_ack() {
         let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
+        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
 
         let message = Message::ack(sender_name, sender_address);
         let actual = message.to_string();
@@ -258,7 +262,7 @@ mod message_tests {
     #[test]
     fn test_write() {
         let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
+        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
 
         let message = Message::ack(sender_name, sender_address);
 
@@ -279,7 +283,7 @@ mod message_tests {
     #[test]
     fn test_read() {
         let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
+        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
 
         let expected = Message::ack(sender_name, sender_address);
 
@@ -298,7 +302,7 @@ mod message_tests {
     #[test]
     fn test_read_with_misformatted_header() {
         let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
+        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
 
         let expected = Message::ack(sender_name, sender_address);
 
@@ -318,7 +322,7 @@ mod message_tests {
     #[test]
     fn test_read_with_body() {
         let sender_name = "My Device";
-        let sender_address = "123.234.210.123:12345";
+        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
 
         let message = Message::ping(sender_name, sender_address);
         let body = "Hello, World!";

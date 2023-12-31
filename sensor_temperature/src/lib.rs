@@ -8,6 +8,7 @@ use mdns_sd::ServiceInfo;
 use datum::kind::Kind;
 use datum::unit::Unit;
 use datum::Datum;
+use device::address::Address;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
@@ -19,7 +20,7 @@ pub struct TemperatureSensor {
     name: Name,
     environment: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
     controller: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
-    address: String,
+    address: Address,
 }
 
 impl Device for TemperatureSensor {
@@ -35,8 +36,8 @@ impl Device for TemperatureSensor {
         Model::Thermo5000
     }
 
-    fn get_address(&self) -> &String {
-        &self.address
+    fn get_address(&self) -> Address {
+        self.address
     }
 
     fn get_handler(&self) -> Handler {
@@ -44,11 +45,8 @@ impl Device for TemperatureSensor {
     }
 
     fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
-        let host = ip.clone().to_string();
-        let address = <Self as Device>::address(host, port.to_string());
-
         std::thread::spawn(move || {
-            let device = Self::new(id, name, address);
+            let device = Self::new(id, name, Address::new(ip, port));
 
             let mut targets = HashMap::new();
             targets.insert("_controller".into(), &device.controller);
@@ -87,7 +85,7 @@ impl Sensor for TemperatureSensor {
 }
 
 impl TemperatureSensor {
-    pub fn new(id: Id, name: Name, address: String) -> TemperatureSensor {
+    pub fn new(id: Id, name: Name, address: Address) -> TemperatureSensor {
         TemperatureSensor {
             id,
             name,

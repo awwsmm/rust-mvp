@@ -6,11 +6,13 @@ use std::thread::JoinHandle;
 
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
+use crate::address::Address;
 use crate::id::Id;
 use crate::message::Message;
 use crate::model::Model;
 use crate::name::Name;
 
+pub mod address;
 pub mod id;
 pub mod message;
 pub mod model;
@@ -33,7 +35,7 @@ pub trait Device {
     fn get_model() -> Model;
 
     /// Returns the ip:port of this `Device` (e.g. "192.168.1.251:8787').
-    fn get_address(&self) -> &String;
+    fn get_address(&self) -> Address;
 
     /// Returns the helper which defines how to handle HTTP requests.
     fn get_handler(&self) -> Handler;
@@ -68,21 +70,15 @@ pub trait Device {
         mdns.register(my_service).unwrap()
     }
 
-    fn address(host: String, port: String) -> String {
-        format!("{}:{}", host, port)
-    }
-
-    fn extract_address(info: &ServiceInfo) -> String {
-        Self::address(
-            info.get_hostname().trim_end_matches('.').to_string(),
-            info.get_port().to_string(),
-        )
+    fn extract_address(info: &ServiceInfo) -> Address {
+        let ip = *info.get_addresses().iter().next().unwrap();
+        let port = info.get_port();
+        Address::new(ip, port)
     }
 
     /// Creates a `TcpListener` and binds it to the specified `ip` and `port`.
     fn bind(&self, ip: IpAddr, port: u16) -> TcpListener {
-        let host = ip.clone().to_string();
-        let address = Self::address(host, port.to_string());
+        let address = Address::new(ip, port).to_string();
         let name = &self.get_name();
 
         println!(
@@ -96,7 +92,7 @@ pub trait Device {
     /// Reads a message from a `TcpStream` and parses it into the message line, headers, and body.
     fn ack_and_parse_request(
         sender_name: &str,
-        sender_address: &str,
+        sender_address: Address,
         mut stream: &mut TcpStream,
     ) -> Result<Message, String> {
         let request = Message::read(BufReader::new(&mut stream));

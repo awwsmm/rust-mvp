@@ -39,12 +39,12 @@ pub trait Actuator: Device {
                     let self_model = Self::get_model().to_string();
 
                     let sender_name = self.get_name().to_string().clone();
-                    let sender_address = self.get_address().clone();
+                    let sender_address = self.get_address();
 
                     let handler: Handler = Box::new(move |stream| {
                         if let Ok(request) = Self::ack_and_parse_request(
                             sender_name.as_str(),
-                            sender_address.as_str(),
+                            sender_address,
                             stream,
                         ) {
                             if request.headers.get("sender_name")
@@ -52,7 +52,7 @@ pub trait Actuator: Device {
                             {
                                 println!("[Actuator] received request from Controller\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
 
-                                let env = <Self as Device>::extract_address(&env);
+                                let env = <Self as Device>::extract_address(&env).to_string();
                                 println!("[Actuator] connecting to Environment @ {}", env);
                                 let mut stream = TcpStream::connect(env).unwrap();
 
@@ -61,10 +61,9 @@ pub trait Actuator: Device {
                                 headers.insert("model", self_model.as_str());
                                 headers.insert("mode", "command");
 
-                                let request =
-                                    Message::ping(sender_name.as_str(), sender_address.as_str())
-                                        .with_headers(headers)
-                                        .with_body(request.body.unwrap());
+                                let request = Message::ping(sender_name.as_str(), sender_address)
+                                    .with_headers(headers)
+                                    .with_body(request.body.unwrap());
 
                                 println!("[Actuator] forwarding request to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
 

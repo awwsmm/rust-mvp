@@ -9,6 +9,7 @@ use actuator_temperature::command::Command;
 use datum::kind::Kind;
 use datum::unit::Unit;
 use datum::Datum;
+use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
@@ -26,7 +27,7 @@ pub struct Environment {
     name: Name,
     id: Id,
     attributes: Arc<Mutex<HashMap<Id, DatumGenerator>>>,
-    address: String,
+    address: Address,
 }
 
 impl Device for Environment {
@@ -42,20 +43,20 @@ impl Device for Environment {
         Model::Environment
     }
 
-    fn get_address(&self) -> &String {
-        &self.address
+    fn get_address(&self) -> Address {
+        self.address
     }
 
     // TODO Environment should respond to HTTP requests from Actuators and Sensors.
     fn get_handler(&self) -> Handler {
         let sender_name = self.get_name().to_string().clone();
-        let sender_address = self.get_address().clone();
+        let sender_address = self.get_address();
 
         let attributes = Arc::clone(&self.attributes);
 
         Box::new(move |stream| {
             if let Ok(message) =
-                Self::ack_and_parse_request(sender_name.as_str(), sender_address.as_str(), stream)
+                Self::ack_and_parse_request(sender_name.as_str(), sender_address, stream)
             {
                 println!(
                     "[Environment] received message\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
@@ -89,11 +90,9 @@ impl Device for Environment {
                                             );
                                             let mut stream = TcpStream::connect(address).unwrap();
 
-                                            let request = Message::ping(
-                                                sender_name.as_str(),
-                                                sender_address.as_str(),
-                                            )
-                                            .with_body(datum.to_string());
+                                            let request =
+                                                Message::ping(sender_name.as_str(), sender_address)
+                                                    .with_body(datum.to_string());
 
                                             println!("[Environment] sending Datum to Sensor\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
                                             request.write(&mut stream);
@@ -184,18 +183,15 @@ impl Device for Environment {
     }
 
     fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
-        let host = ip.clone().to_string();
-        let address = <Self as Device>::address(host, port.to_string());
-
         std::thread::spawn(move || {
-            let device = Self::new(id, name, address);
+            let device = Self::new(id, name, Address::new(ip, port));
             device.run(ip, port, "_environment", HashMap::new());
         })
     }
 }
 
 impl Environment {
-    pub fn new(id: Id, name: Name, address: String) -> Self {
+    pub fn new(id: Id, name: Name, address: Address) -> Self {
         Self {
             name,
             id,

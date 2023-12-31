@@ -52,7 +52,7 @@ pub trait Sensor: Device {
                     );
 
                     let sender_name = self.get_name().to_string().clone();
-                    let sender_address = self.get_address().clone();
+                    let sender_address = self.get_address();
 
                     let self_id = self.get_id().to_string();
                     let self_model = Self::get_model().to_string();
@@ -62,7 +62,7 @@ pub trait Sensor: Device {
                     let handler: Handler = Box::new(move |stream| {
                         if let Ok(request) = Self::ack_and_parse_request(
                             sender_name.as_str(),
-                            sender_address.as_str(),
+                            sender_address,
                             stream,
                         ) {
                             if request.headers.get("sender_name")
@@ -70,7 +70,7 @@ pub trait Sensor: Device {
                             {
                                 println!("[Sensor] received request from Controller\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
 
-                                let env = <Self as Device>::extract_address(&env);
+                                let env = <Self as Device>::extract_address(&env).to_string();
                                 println!("[Sensor] connecting to Environment @ {}", env);
                                 let mut stream = TcpStream::connect(env).unwrap();
 
@@ -80,9 +80,8 @@ pub trait Sensor: Device {
                                 headers.insert("unit", self_unit.as_str());
                                 headers.insert("mode", "request");
 
-                                let request =
-                                    Message::ping(sender_name.as_str(), sender_address.as_str())
-                                        .with_headers(headers);
+                                let request = Message::ping(sender_name.as_str(), sender_address)
+                                    .with_headers(headers);
                                 println!("[Sensor] forwarding request to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
                                 request.write(&mut stream);
                             } else if request.headers.get("sender_name")
@@ -90,7 +89,8 @@ pub trait Sensor: Device {
                             {
                                 println!("[Sensor] received request from Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
 
-                                let controller = <Self as Device>::extract_address(&controller);
+                                let controller =
+                                    <Self as Device>::extract_address(&controller).to_string();
                                 println!("[Sensor] connecting to Controller @ {}", controller);
                                 let mut stream = TcpStream::connect(controller).unwrap();
 
@@ -98,10 +98,9 @@ pub trait Sensor: Device {
                                 headers.insert("id", self_id.as_str());
                                 headers.insert("model", self_model.as_str());
 
-                                let request =
-                                    Message::ping(sender_name.as_str(), sender_address.as_str())
-                                        .with_headers(headers)
-                                        .with_body(request.body.unwrap());
+                                let request = Message::ping(sender_name.as_str(), sender_address)
+                                    .with_headers(headers)
+                                    .with_body(request.body.unwrap());
 
                                 println!("[Sensor] forwarding Datum to Controller\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
                                 request.write(&mut stream);

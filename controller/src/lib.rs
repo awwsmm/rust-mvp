@@ -7,6 +7,7 @@ use std::time::Duration;
 use mdns_sd::ServiceInfo;
 
 use datum::Datum;
+use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
@@ -31,7 +32,7 @@ pub struct Controller {
     name: Name,
     id: Id,
     state: State,
-    address: String,
+    address: Address,
 }
 
 impl Device for Controller {
@@ -47,14 +48,14 @@ impl Device for Controller {
         Model::Controller
     }
 
-    fn get_address(&self) -> &String {
-        &self.address
+    fn get_address(&self) -> Address {
+        self.address
     }
 
     // TODO Controller should respond to HTTP requests from Sensors.
     fn get_handler(&self) -> Handler {
         let sender_name = self.get_name().to_string().clone();
-        let sender_address = self.get_address().clone();
+        let sender_address = self.get_address();
 
         let assessors = Arc::clone(&self.state.assessors);
         let assessors = assessors.lock();
@@ -66,7 +67,7 @@ impl Device for Controller {
 
         Box::new(move |stream| {
             if let Ok(request) =
-                Self::ack_and_parse_request(sender_name.as_str(), sender_address.as_str(), stream)
+                Self::ack_and_parse_request(sender_name.as_str(), sender_address, stream)
             {
                 println!(
                     "[Controller] received message (ignoring for now)\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
@@ -110,14 +111,14 @@ impl Device for Controller {
                                 match actuators.get(&id) {
                                     None => println!("[Controller] cannot find Actuator with id: {}", id),
                                     Some(actuator) => {
-                                        let actuator = <Self as Device>::extract_address(actuator);
+                                        let actuator = <Self as Device>::extract_address(actuator).to_string();
                                         println!("[Sensor] connecting to Actuator @ {}", actuator);
 
                                         let mut stream = TcpStream::connect(actuator).unwrap();
 
                                         let command = Message::ping(
                                             sender_name.as_str(),
-                                            sender_address.as_str()
+                                            sender_address
                                         ).with_body(
                                             command.to_string()
                                         );
@@ -144,11 +145,8 @@ impl Device for Controller {
     }
 
     fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
-        let host = ip.clone().to_string();
-        let address = <Self as Device>::address(host, port.to_string());
-
         std::thread::spawn(move || {
-            let device = Self::new(id, name, address);
+            let device = Self::new(id, name, Address::new(ip, port));
 
             let mut targets = HashMap::new();
             targets.insert("_sensor".into(), &device.state.sensors);
@@ -162,7 +160,7 @@ impl Device for Controller {
 }
 
 impl Controller {
-    pub fn new(id: Id, name: Name, address: String) -> Self {
+    pub fn new(id: Id, name: Name, address: Address) -> Self {
         Self {
             name,
             id,
@@ -180,8 +178,8 @@ impl Controller {
     }
 
     /// Pings the latest `Sensor` so that it can (asynchronously) send a response containing the latest `Datum`.
-    pub fn ping_sensor(sender_name: &str, sender_address: &str, info: &ServiceInfo) {
-        let address = <Self as Device>::extract_address(info);
+    pub fn ping_sensor(sender_name: &str, sender_address: Address, info: &ServiceInfo) {
+        let address = <Self as Device>::extract_address(info).to_string();
 
         let mut tcp_stream = TcpStream::connect(address).unwrap();
 
@@ -194,7 +192,7 @@ impl Controller {
     pub fn poll(&self) -> JoinHandle<()> {
         let sensors_mutex = Arc::clone(&self.state.sensors);
         let sender_name = self.get_name().to_string().clone();
-        let sender_address = self.get_address().clone();
+        let sender_address = self.get_address();
 
         std::thread::spawn(move || {
             loop {
@@ -215,7 +213,7 @@ impl Controller {
                                 );
                                 Self::ping_sensor(
                                     sender_name.as_str(),
-                                    sender_address.as_str(),
+                                    sender_address,
                                     service_info,
                                 );
                             } else {

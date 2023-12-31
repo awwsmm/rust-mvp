@@ -6,6 +6,7 @@ use std::thread::JoinHandle;
 use mdns_sd::ServiceInfo;
 
 use actuator::Actuator;
+use device::address::Address;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
@@ -17,7 +18,7 @@ pub struct TemperatureActuator {
     id: Id,
     name: Name,
     pub env: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
-    address: String,
+    address: Address,
 }
 
 impl Device for TemperatureActuator {
@@ -33,8 +34,8 @@ impl Device for TemperatureActuator {
         Model::Thermo5000
     }
 
-    fn get_address(&self) -> &String {
-        &self.address
+    fn get_address(&self) -> Address {
+        self.address
     }
 
     fn get_handler(&self) -> Handler {
@@ -42,11 +43,8 @@ impl Device for TemperatureActuator {
     }
 
     fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
-        let host = ip.clone().to_string();
-        let address = <Self as Device>::address(host, port.to_string());
-
         std::thread::spawn(move || {
-            let device = Self::new(id, name, address);
+            let device = Self::new(id, name, Address::new(ip, port));
 
             let mut targets = HashMap::new();
             targets.insert("_environment".into(), &device.env);
@@ -65,7 +63,7 @@ impl Actuator for TemperatureActuator {
 }
 
 impl TemperatureActuator {
-    pub fn new(id: Id, name: Name, address: String) -> Self {
+    pub fn new(id: Id, name: Name, address: Address) -> Self {
         Self {
             id,
             name,
