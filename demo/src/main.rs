@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use actuator_temperature::TemperatureActuator;
 use controller::Controller;
+use device::address::Address;
 use device::id::Id;
 use device::name::Name;
 use device::Device;
@@ -22,7 +23,13 @@ fn main() {
     let id = Id::new(Uuid::new_v4());
 
     // here is the Sensor
-    <TemperatureSensor as Device>::start(ip, 8787, id.clone(), Name::new("My Thermo-5000 Sensor"));
+    let sensor_port = 8787;
+    <TemperatureSensor as Device>::start(
+        ip,
+        sensor_port,
+        id.clone(),
+        Name::new("My Thermo-5000 Sensor"),
+    );
 
     // here is the Actuator
     <TemperatureActuator as Device>::start(
@@ -46,6 +53,17 @@ fn main() {
     let environment_port = 5454;
     Environment::start_default(ip, environment_port);
 
-    // demo should loop continually
-    std::thread::sleep(Duration::MAX)
+    // we continually tell the Controller to poll the sensors
+    loop {
+        std::thread::sleep(Duration::from_secs(1));
+
+        Controller::ping_sensor(
+            "Controller", // FIXME this must be "Controller" or this does not work
+            Address::new(ip, environment_port),
+            Address::new(ip, sensor_port),
+        );
+    }
+
+    // // demo should loop continually
+    // std::thread::sleep(Duration::MAX)
 }

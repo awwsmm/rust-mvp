@@ -1,9 +1,7 @@
-use mdns_sd::ServiceInfo;
 use std::collections::HashMap;
 use std::net::{IpAddr, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use std::time::Duration;
 
 use datum::Datum;
 use device::address::Address;
@@ -11,7 +9,7 @@ use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Handler};
+use device::{Device, Handler, Targets};
 
 use crate::assessor::DEFAULT_ASSESSOR;
 use crate::state::State;
@@ -151,7 +149,11 @@ impl Device for Controller {
             targets.insert("_sensor".into(), Arc::clone(&device.state.sensors));
             targets.insert("_actuator".into(), Arc::clone(&device.state.actuators));
 
-            Controller::poll(&device);
+            // let sensors = Arc::clone(&device.state.sensors);
+            // let self_name = device.get_name().to_string().clone();
+            // let self_address = device.get_address();
+            //
+            // Controller::poll(sensors, self_name, self_address);
 
             device.run(ip, port, "_controller", targets);
         })
@@ -172,61 +174,65 @@ impl Controller {
         Self::start(ip, port, Id::new("controller"), Name::new("Controller"))
     }
 
+    #[allow(dead_code)] // FIXME remove ASAP
     fn is_supported(model: &Model) -> bool {
         DEFAULT_ASSESSOR.contains_key(model.to_string().as_str())
     }
 
     /// Pings the latest `Sensor` so that it can (asynchronously) send a response containing the latest `Datum`.
-    pub fn ping_sensor(sender_name: &str, sender_address: Address, info: &ServiceInfo) {
-        let address = <Self as Device>::extract_address(info).to_string();
-
-        let mut tcp_stream = TcpStream::connect(address).unwrap();
+    pub fn ping_sensor(sender_name: &str, return_address: Address, sensor_address: Address) {
+        let mut tcp_stream = TcpStream::connect(sensor_address.to_string()).unwrap();
 
         // send the minimum possible payload. We only want to ping the Sensor
         // see: https://stackoverflow.com/a/9734866
-        let ping = Message::ping(sender_name, sender_address);
+        let ping = Message::ping(sender_name, return_address);
         ping.write(&mut tcp_stream);
     }
 
-    pub fn poll(&self) -> JoinHandle<()> {
-        let sensors_mutex = Arc::clone(&self.state.sensors);
-        let sender_name = self.get_name().to_string().clone();
-        let sender_address = self.get_address();
-
-        std::thread::spawn(move || {
-            loop {
-                // We put the locks in this inner scope so the lock is released at the end of the scope
-                {
-                    let sensors_lock = sensors_mutex.lock();
-                    let sensors = sensors_lock.unwrap();
-
-                    for (_id, service_info) in sensors.iter() {
-                        if let Some(Ok(model)) = Self::extract_model(service_info) {
-                            if Self::is_supported(&model) {
-                                println!(
-                                    "[Controller::poll] pinging sensor \"{}\"",
-                                    service_info
-                                        .get_property("name")
-                                        .map(|p| p.val_str())
-                                        .unwrap_or("<unknown>")
-                                );
-                                Self::ping_sensor(
-                                    sender_name.as_str(),
-                                    sender_address,
-                                    service_info,
-                                );
-                            } else {
-                                println!("[poll] unsupported Model: {:?}", service_info)
-                            }
-                        } else {
-                            println!("[poll] could not find property 'model' in ServiceInfo")
-                        }
-                    }
-                }
-
-                // When the lock_result is released, we pause for a second, so self.sensors isn't continually locked
-                std::thread::sleep(Duration::from_secs(3))
-            }
-        })
+    /// Returns all of the `Sensor`s of which the `Controller` is aware.
+    pub fn get_sensors(&self) -> &Targets {
+        &self.state.sensors
     }
+
+    // pub fn poll(sensors: Targets, self_name: String, self_address: Address) -> JoinHandle<()> {
+    //     // let sensors = Arc::clone(&self.state.sensors);
+    //     // let self_name = self.get_name().to_string().clone();
+    //     // let self_address = self.get_address();
+    //
+    //     std::thread::spawn(move || {
+    //         loop {
+    //             // We put the locks in this inner scope so the lock is released at the end of the scope
+    //             {
+    //                 let sensors_lock = sensors.lock();
+    //                 let sensors = sensors_lock.unwrap();
+    //
+    //                 for (_id, service_info) in sensors.iter() {
+    //                     if let Some(Ok(model)) = Self::extract_model(service_info) {
+    //                         if Self::is_supported(&model) {
+    //                             println!(
+    //                                 "[Controller::poll] pinging sensor \"{}\"",
+    //                                 service_info
+    //                                     .get_property("name")
+    //                                     .map(|p| p.val_str())
+    //                                     .unwrap_or("<unknown>")
+    //                             );
+    //                             Self::ping_sensor(
+    //                                 self_name.as_str(),
+    //                                 self_address,
+    //                                 <Self as Device>::extract_address(service_info)
+    //                             );
+    //                         } else {
+    //                             println!("[poll] unsupported Model: {:?}", service_info)
+    //                         }
+    //                     } else {
+    //                         println!("[poll] could not find property 'model' in ServiceInfo")
+    //                     }
+    //                 }
+    //             }
+    //
+    //             // When the lock_result is released, we pause for a second, so self.sensors isn't continually locked
+    //             std::thread::sleep(Duration::from_secs(3))
+    //         }
+    //     })
+    // }
 }
