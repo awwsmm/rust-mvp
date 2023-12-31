@@ -14,7 +14,7 @@ use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Handler};
+use device::{Device, Handler, Targets};
 
 use crate::generator::DatumGenerator;
 
@@ -182,16 +182,11 @@ impl Device for Environment {
         })
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
-        std::thread::spawn(move || {
-            let device = Self::new(id, name, Address::new(ip, port));
-            device.run(ip, port, "_environment", HashMap::new());
-        })
+    fn targets_by_group(&self) -> HashMap<String, Targets> {
+        HashMap::new()
     }
-}
 
-impl Environment {
-    pub fn new(id: Id, name: Name, address: Address) -> Self {
+    fn new(id: Id, name: Name, address: Address) -> Self {
         Self {
             name,
             id,
@@ -199,9 +194,17 @@ impl Environment {
             address,
         }
     }
+}
 
+impl Environment {
     pub fn start_default(ip: IpAddr, port: u16) -> JoinHandle<()> {
-        Self::start(ip, port, Id::new("environment"), Name::new("Environment"))
+        Self::start(
+            ip,
+            port,
+            Id::new("environment"),
+            Name::new("Environment"),
+            "_environment".into(),
+        )
     }
 
     fn get(

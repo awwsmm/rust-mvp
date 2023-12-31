@@ -28,7 +28,7 @@ pub type Handler = Box<dyn Fn(&mut TcpStream)>;
 pub type Targets = Arc<Mutex<HashMap<Id, ServiceInfo>>>;
 
 /// A `Device` exists on the network and is discoverable via mDNS.
-pub trait Device {
+pub trait Device: Sized {
     /// Returns the user-friendly name of this `Device`.
     fn get_name(&self) -> &Name;
 
@@ -190,5 +190,14 @@ pub trait Device {
         })
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()>;
+    fn targets_by_group(&self) -> HashMap<String, Targets>;
+
+    fn new(id: Id, name: Name, address: Address) -> Self;
+
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
+        std::thread::spawn(move || {
+            let device = Self::new(id, name, Address::new(ip, port));
+            device.run(ip, port, group.as_str(), device.targets_by_group());
+        })
+    }
 }

@@ -6,7 +6,6 @@ use mdns_sd::ServiceInfo;
 
 use datum::kind::Kind;
 use datum::unit::Unit;
-use datum::Datum;
 use device::message::Message;
 use device::{Device, Handler};
 
@@ -15,13 +14,6 @@ pub trait Sensor: Device {
     fn get_environment(&self) -> Option<ServiceInfo>;
 
     fn get_controller(&self) -> Option<ServiceInfo>;
-
-    /// To get data out of a sensor, we call `get_datum()`.
-    ///
-    /// In the "real world", this would poll some actual physical sensor for a data point.
-    ///
-    /// In our example MVP, this queries the `Environment` for data.
-    fn get_datum() -> Datum;
 
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
     fn default_handler(&self) -> Handler {

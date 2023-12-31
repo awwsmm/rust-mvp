@@ -29,6 +29,7 @@ fn main() {
         sensor_port,
         id.clone(),
         Name::new("My Thermo-5000 Sensor"),
+        "_sensor".into(),
     );
 
     // here is the Actuator
@@ -37,6 +38,7 @@ fn main() {
         9898,
         id.clone(),
         Name::new("My Thermo-5000 Actuator"),
+        "_actuator".into(),
     );
 
     // --------------------------------------------------------------------------------
@@ -63,7 +65,4 @@ fn main() {
             Address::new(ip, sensor_port),
         );
     }
-
-    // // demo should loop continually
-    // std::thread::sleep(Duration::MAX)
 }

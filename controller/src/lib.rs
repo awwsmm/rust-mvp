@@ -141,27 +141,14 @@ impl Device for Controller {
         })
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
-        std::thread::spawn(move || {
-            let device = Self::new(id, name, Address::new(ip, port));
-
-            let mut targets = HashMap::new();
-            targets.insert("_sensor".into(), Arc::clone(&device.state.sensors));
-            targets.insert("_actuator".into(), Arc::clone(&device.state.actuators));
-
-            // let sensors = Arc::clone(&device.state.sensors);
-            // let self_name = device.get_name().to_string().clone();
-            // let self_address = device.get_address();
-            //
-            // Controller::poll(sensors, self_name, self_address);
-
-            device.run(ip, port, "_controller", targets);
-        })
+    fn targets_by_group(&self) -> HashMap<String, Targets> {
+        let mut map = HashMap::new();
+        map.insert("_sensor".into(), Arc::clone(&self.state.sensors));
+        map.insert("_actuator".into(), Arc::clone(&self.state.actuators));
+        map
     }
-}
 
-impl Controller {
-    pub fn new(id: Id, name: Name, address: Address) -> Self {
+    fn new(id: Id, name: Name, address: Address) -> Self {
         Self {
             name,
             id,
@@ -169,9 +156,17 @@ impl Controller {
             address,
         }
     }
+}
 
+impl Controller {
     pub fn start_default(ip: IpAddr, port: u16) -> JoinHandle<()> {
-        Self::start(ip, port, Id::new("controller"), Name::new("Controller"))
+        Self::start(
+            ip,
+            port,
+            Id::new("controller"),
+            Name::new("Controller"),
+            "_controller".into(),
+        )
     }
 
     #[allow(dead_code)] // FIXME remove ASAP
@@ -193,46 +188,4 @@ impl Controller {
     pub fn get_sensors(&self) -> &Targets {
         &self.state.sensors
     }
-
-    // pub fn poll(sensors: Targets, self_name: String, self_address: Address) -> JoinHandle<()> {
-    //     // let sensors = Arc::clone(&self.state.sensors);
-    //     // let self_name = self.get_name().to_string().clone();
-    //     // let self_address = self.get_address();
-    //
-    //     std::thread::spawn(move || {
-    //         loop {
-    //             // We put the locks in this inner scope so the lock is released at the end of the scope
-    //             {
-    //                 let sensors_lock = sensors.lock();
-    //                 let sensors = sensors_lock.unwrap();
-    //
-    //                 for (_id, service_info) in sensors.iter() {
-    //                     if let Some(Ok(model)) = Self::extract_model(service_info) {
-    //                         if Self::is_supported(&model) {
-    //                             println!(
-    //                                 "[Controller::poll] pinging sensor \"{}\"",
-    //                                 service_info
-    //                                     .get_property("name")
-    //                                     .map(|p| p.val_str())
-    //                                     .unwrap_or("<unknown>")
-    //                             );
-    //                             Self::ping_sensor(
-    //                                 self_name.as_str(),
-    //                                 self_address,
-    //                                 <Self as Device>::extract_address(service_info)
-    //                             );
-    //                         } else {
-    //                             println!("[poll] unsupported Model: {:?}", service_info)
-    //                         }
-    //                     } else {
-    //                         println!("[poll] could not find property 'model' in ServiceInfo")
-    //                     }
-    //                 }
-    //             }
-    //
-    //             // When the lock_result is released, we pause for a second, so self.sensors isn't continually locked
-    //             std::thread::sleep(Duration::from_secs(3))
-    //         }
-    //     })
-    // }
 }

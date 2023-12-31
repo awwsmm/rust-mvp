@@ -1,13 +1,10 @@
 use std::collections::HashMap;
-use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
 
 use mdns_sd::ServiceInfo;
 
 use datum::kind::Kind;
 use datum::unit::Unit;
-use datum::Datum;
 use device::address::Address;
 use device::id::Id;
 use device::model::Model;
@@ -44,16 +41,21 @@ impl Device for TemperatureSensor {
         self.default_handler()
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
-        std::thread::spawn(move || {
-            let device = Self::new(id, name, Address::new(ip, port));
+    fn targets_by_group(&self) -> HashMap<String, Targets> {
+        let mut map = HashMap::new();
+        map.insert("_controller".into(), Arc::clone(&self.controller));
+        map.insert("_environment".into(), Arc::clone(&self.environment));
+        map
+    }
 
-            let mut targets = HashMap::new();
-            targets.insert("_controller".into(), Arc::clone(&device.controller));
-            targets.insert("_environment".into(), Arc::clone(&device.environment));
-
-            device.run(ip, port, "_sensor", targets);
-        })
+    fn new(id: Id, name: Name, address: Address) -> TemperatureSensor {
+        TemperatureSensor {
+            id,
+            name,
+            environment: Arc::new(Mutex::new(HashMap::new())),
+            controller: Arc::new(Mutex::new(HashMap::new())),
+            address,
+        }
     }
 }
 
@@ -70,28 +72,11 @@ impl Sensor for TemperatureSensor {
         guard.get(&Id::new("controller")).cloned()
     }
 
-    fn get_datum() -> Datum {
-        // TODO should query Environment
-        Datum::new_now(25.0, Unit::DegreesC)
-    }
-
     fn get_datum_value_type(&self) -> Kind {
         Kind::Float
     }
 
     fn get_datum_unit(&self) -> Unit {
         Unit::DegreesC
-    }
-}
-
-impl TemperatureSensor {
-    pub fn new(id: Id, name: Name, address: Address) -> TemperatureSensor {
-        TemperatureSensor {
-            id,
-            name,
-            environment: Arc::new(Mutex::new(HashMap::new())),
-            controller: Arc::new(Mutex::new(HashMap::new())),
-            address,
-        }
     }
 }

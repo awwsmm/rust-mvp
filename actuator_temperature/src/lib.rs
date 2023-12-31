@@ -1,7 +1,5 @@
 use std::collections::HashMap;
-use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
 
 use mdns_sd::ServiceInfo;
 
@@ -42,15 +40,19 @@ impl Device for TemperatureActuator {
         self.default_handler()
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name) -> JoinHandle<()> {
-        std::thread::spawn(move || {
-            let device = Self::new(id, name, Address::new(ip, port));
+    fn targets_by_group(&self) -> HashMap<String, Targets> {
+        let mut map = HashMap::new();
+        map.insert("_environment".into(), Arc::clone(&self.env));
+        map
+    }
 
-            let mut targets = HashMap::new();
-            targets.insert("_environment".into(), Arc::clone(&device.env));
-
-            device.run(ip, port, "_actuator", targets);
-        })
+    fn new(id: Id, name: Name, address: Address) -> Self {
+        Self {
+            id,
+            name,
+            env: Arc::new(Mutex::new(HashMap::new())),
+            address,
+        }
     }
 }
 
@@ -59,16 +61,5 @@ impl Actuator for TemperatureActuator {
         let lock = self.env.lock();
         let guard = lock.unwrap();
         guard.get(&Id::new("environment")).cloned()
-    }
-}
-
-impl TemperatureActuator {
-    pub fn new(id: Id, name: Name, address: Address) -> Self {
-        Self {
-            id,
-            name,
-            env: Arc::new(Mutex::new(HashMap::new())),
-            address,
-        }
     }
 }
