@@ -141,7 +141,7 @@ impl Message {
 }
 
 #[cfg(test)]
-mod message_tests {
+mod device_message_tests {
     use std::net::IpAddr;
 
     use super::*;

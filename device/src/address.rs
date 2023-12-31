@@ -19,3 +19,19 @@ impl Display for Address {
         write!(f, "{}:{}", self.ip, self.port)
     }
 }
+
+#[cfg(test)]
+mod device_address_tests {
+    use super::*;
+
+    #[test]
+    fn test_display() {
+        let ip = IpAddr::from([123, 234, 123, 255]);
+        let address = Address::new(ip, 10101);
+
+        let expected = "123.234.123.255:10101";
+        let actual = address.to_string();
+
+        assert_eq!(actual, expected)
+    }
+}
