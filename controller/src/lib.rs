@@ -66,7 +66,7 @@ impl Device for Controller {
 
         Box::new(move |stream| {
             if let Ok(request) =
-                Self::ack_and_parse_request(sender_name.clone(), sender_address.clone(), stream)
+                Self::ack_and_parse_request(sender_name.as_str(), sender_address.as_str(), stream)
             {
                 println!(
                     "[Controller] received message (ignoring for now)\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
@@ -115,11 +115,16 @@ impl Device for Controller {
 
                                         let mut stream = TcpStream::connect(actuator).unwrap();
 
-                                        let command = Message::ping_with_body(sender_name.clone(), sender_address.clone(), Some(command.to_string()));
+                                        let command = Message::ping(
+                                            sender_name.as_str(),
+                                            sender_address.as_str()
+                                        ).with_body(
+                                            command.to_string()
+                                        );
 
                                         println!("[Controller] sending Command to Actuator\nvvvvvvvvvv\n{}\n^^^^^^^^^^", command);
 
-                                        command.send(&mut stream);
+                                        command.write(&mut stream);
 
                                     }
                                 }
@@ -175,15 +180,15 @@ impl Controller {
     }
 
     /// Pings the latest `Sensor` so that it can (asynchronously) send a response containing the latest `Datum`.
-    pub fn ping_sensor(sender_name: String, sender_address: String, info: &ServiceInfo) {
+    pub fn ping_sensor(sender_name: &str, sender_address: &str, info: &ServiceInfo) {
         let address = <Self as Device>::extract_address(info);
 
         let mut tcp_stream = TcpStream::connect(address).unwrap();
 
         // send the minimum possible payload. We only want to ping the Sensor
         // see: https://stackoverflow.com/a/9734866
-        let ping = Message::old_ping(sender_name, sender_address);
-        ping.send(&mut tcp_stream);
+        let ping = Message::ping(sender_name, sender_address);
+        ping.write(&mut tcp_stream);
     }
 
     pub fn poll(&self) -> JoinHandle<()> {
@@ -209,8 +214,8 @@ impl Controller {
                                         .unwrap_or("<unknown>")
                                 );
                                 Self::ping_sensor(
-                                    sender_name.clone(),
-                                    sender_address.clone(),
+                                    sender_name.as_str(),
+                                    sender_address.as_str(),
                                     service_info,
                                 );
                             } else {

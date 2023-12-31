@@ -31,7 +31,6 @@ impl Display for Model {
 }
 
 impl Model {
-
     /// Attempts to parse a `Model` from the provided string or string slice.
     pub fn parse<S: Into<String>>(s: S) -> Result<Model, String> {
         let string = s.into();

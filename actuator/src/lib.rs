@@ -43,8 +43,8 @@ pub trait Actuator: Device {
 
                     let handler: Handler = Box::new(move |stream| {
                         if let Ok(request) = Self::ack_and_parse_request(
-                            sender_name.clone(),
-                            sender_address.clone(),
+                            sender_name.as_str(),
+                            sender_address.as_str(),
                             stream,
                         ) {
                             if request.headers.get("sender_name")
@@ -57,20 +57,18 @@ pub trait Actuator: Device {
                                 let mut stream = TcpStream::connect(env).unwrap();
 
                                 let mut headers = HashMap::new();
-                                headers.insert("id".into(), self_id.clone());
-                                headers.insert("model".into(), self_model.clone());
-                                headers.insert("mode".into(), "command".into());
+                                headers.insert("id", self_id.as_str());
+                                headers.insert("model", self_model.as_str());
+                                headers.insert("mode", "command");
 
-                                let request = Message::ping_with_headers_and_body(
-                                    sender_name.clone(),
-                                    sender_address.clone(),
-                                    headers,
-                                    request.body,
-                                );
+                                let request =
+                                    Message::ping(sender_name.as_str(), sender_address.as_str())
+                                        .with_headers(headers)
+                                        .with_body(request.body.unwrap());
 
                                 println!("[Actuator] forwarding request to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
 
-                                request.send(&mut stream);
+                                request.write(&mut stream);
                             } else {
                                 println!("[Actuator] received request from unhandled sender '{:?}'. Ignoring.", request.headers.get("sender_name"));
                             }

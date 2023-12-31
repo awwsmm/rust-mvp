@@ -95,15 +95,15 @@ pub trait Device {
 
     /// Reads a message from a `TcpStream` and parses it into the message line, headers, and body.
     fn ack_and_parse_request(
-        sender_name: String,
-        sender_address: String,
+        sender_name: &str,
+        sender_address: &str,
         mut stream: &mut TcpStream,
     ) -> Result<Message, String> {
-        let request = Message::from(BufReader::new(&mut stream));
+        let request = Message::read(BufReader::new(&mut stream));
 
         // every HTTP request gets a 200 OK "ack" to close the HTTP socket
         let response = Message::ack(sender_name, sender_address);
-        response.send(stream);
+        response.write(stream);
 
         request
     }

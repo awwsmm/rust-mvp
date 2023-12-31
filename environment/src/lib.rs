@@ -55,7 +55,7 @@ impl Device for Environment {
 
         Box::new(move |stream| {
             if let Ok(message) =
-                Self::ack_and_parse_request(sender_name.clone(), sender_address.clone(), stream)
+                Self::ack_and_parse_request(sender_name.as_str(), sender_address.as_str(), stream)
             {
                 println!(
                     "[Environment] received message\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
@@ -89,14 +89,14 @@ impl Device for Environment {
                                             );
                                             let mut stream = TcpStream::connect(address).unwrap();
 
-                                            let request = Message::ping_with_body(
-                                                sender_name.clone(),
-                                                sender_address.clone(),
-                                                Some(datum.to_string()),
-                                            );
+                                            let request = Message::ping(
+                                                sender_name.as_str(),
+                                                sender_address.as_str(),
+                                            )
+                                            .with_body(datum.to_string());
 
                                             println!("[Environment] sending Datum to Sensor\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
-                                            request.send(&mut stream);
+                                            request.write(&mut stream);
                                         }
                                     }
                                     _ => println!("[Environment] cannot parse id, kind, or unit"),

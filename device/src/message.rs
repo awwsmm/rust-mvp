@@ -1,24 +1,41 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::io::{BufRead, Write};
-use std::net::TcpStream;
 
-#[derive(PartialEq)]
+/// `Device`s communicate by sending and receiving `Message`s.
+///
+/// **Design Decision**: in this codebase, `Message`s are HTTP requests. All communication happens asynchronously via
+/// "fire and forget" HTTP requests (all responses to all messages are "200 OK"). This _asynchronous message-passing_
+/// style of communication is the de-facto standard in
+/// [microservices design](https://docs.aws.amazon.com/whitepapers/latest/microservices-on-aws/asynchronous-messaging-and-event-passing.html).
+///
+/// **Design Decision**: `request_line` is purposefully not `pub` so that a `Message` cannot be created directly.
+/// `Message`s must be created via one of the `impl` methods so that required headers can be added.
+#[derive(PartialEq, Debug)]
 pub struct Message {
-    pub request_line: String,
+    request_line: String,
     pub headers: HashMap<String, String>,
     pub body: Option<String>,
 }
 
+/// Allows `Message`s to be converted to `String`s with `to_string()`.
+///
+/// This implementation produces `String`s which conform to
+/// [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#name-example-message-exchange).
 impl Display for Message {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let headers = self.headers.iter().map(|(k, v)| format!("{}: {}", k, v));
+        // sort headers so we can more easily make assertions about the serialized format
+        let mut headers: Vec<(&String, &String)> = self.headers.iter().collect();
+        headers.sort();
+
+        let headers = headers
+            .into_iter()
+            .map(|(key, value)| format!("{}: {}", key, value));
         let headers = headers.collect::<Vec<String>>().join("\r\n");
-        let headers = if headers.is_empty() {
-            String::from("")
-        } else {
-            format!("{}\r\n", headers)
-        };
+
+        // headers are always followed by a blank line, i.e. \r\n\r\n
+        let headers = format!("{}\r\n", headers);
+
         let body = &self
             .body
             .as_ref()
@@ -29,13 +46,12 @@ impl Display for Message {
 }
 
 impl Message {
+    /// Creates a new `Message` from its constituent parts.
+    ///
+    /// **Design Decision**: this method is purposefully not `pub` so that a `Message` cannot be
+    /// created directly. `Message`s must be created via one of the `pub` `impl` methods so that
+    /// required headers can be added.
     fn new(request_line: &str, headers: HashMap<String, String>, body: Option<String>) -> Message {
-        let mut headers = headers.clone();
-
-        if let Some(body) = body.as_ref() {
-            headers.insert("Content-Length".into(), body.len().to_string());
-        }
-
         Message {
             request_line: String::from(request_line),
             headers,
@@ -43,7 +59,45 @@ impl Message {
         }
     }
 
-    pub fn from(mut reader: impl BufRead) -> Result<Message, String> {
+    /// Creates a simple `GET` message to ping one `Device` from another.
+    pub fn ping(sender_name: &str, sender_address: &str) -> Message {
+        let mut headers = HashMap::new();
+        headers.insert("sender_name".into(), sender_name.into());
+        headers.insert("sender_address".into(), sender_address.into());
+        Message::new("GET / HTTP/1.1", headers, None)
+    }
+
+    /// Adds the given `headers` to this `Message`.
+    pub fn with_headers(mut self, headers: HashMap<&str, &str>) -> Message {
+        headers.into_iter().for_each(|(key, value)| {
+            self.headers.insert(key.into(), value.into());
+        });
+        self
+    }
+
+    /// Sets the body of this message to the provided `body`.
+    pub fn with_body<S: Into<String>>(mut self, body: S) -> Message {
+        let body = body.into();
+        self.headers
+            .insert("Content-Length".into(), body.len().to_string());
+        self.body = Some(body);
+        self
+    }
+
+    /// Creates a simple `200 OK` response to acknowledge the receipt of a `Message`.
+    pub fn ack(sender_name: &str, sender_address: &str) -> Message {
+        let mut message = Message::ping(sender_name, sender_address);
+        message.request_line = "HTTP/1.1 200 OK".into();
+        message
+    }
+
+    /// Writes this `Message` into the provided `tcp_stream`.
+    pub fn write(&self, tcp_stream: &mut impl Write) {
+        tcp_stream.write_all(self.to_string().as_bytes()).unwrap();
+    }
+
+    /// Attempts to read a `Message` from a `BufRead` (usually a `TcpStream`).
+    pub fn read(mut reader: impl BufRead) -> Result<Message, String> {
         let mut message = String::new();
         reader
             .read_line(&mut message)
@@ -70,62 +124,17 @@ impl Message {
 
         let mut body: Option<String> = None;
 
+        // we write the Content-Length header, so we can assume it's correctly formatted
         if let Some(length) = headers.get("Content-Length") {
-            if let Ok(length) = length.parse::<usize>() {
-                let mut buffer = vec![0; length];
-                reader.read_exact(&mut buffer).unwrap();
-                body = Some(std::str::from_utf8(buffer.as_slice()).unwrap().into());
-            }
+            let length = length.parse::<usize>().unwrap();
+            let mut buffer = vec![0; length];
+            reader.read_exact(&mut buffer).unwrap();
+            body = Some(std::str::from_utf8(buffer.as_slice()).unwrap().into());
         }
 
         let message = Message::new(message.trim(), headers, body);
 
         Ok(message)
-    }
-
-    pub fn ping_with_headers_and_body(
-        sender_name: String,
-        sender_address: String,
-        headers: HashMap<String, String>,
-        body: Option<String>,
-    ) -> Message {
-        let mut headers = headers.clone();
-        headers.insert("sender_name".into(), sender_name);
-        headers.insert("sender_address".into(), sender_address);
-
-        Message::new("GET / HTTP/1.1", headers, body)
-    }
-
-    pub fn ping_with_body(
-        sender_name: String,
-        sender_address: String,
-        body: Option<String>,
-    ) -> Message {
-        Self::ping_with_headers_and_body(sender_name, sender_address, HashMap::new(), body)
-    }
-
-    pub fn ping_with_headers(
-        sender_name: String,
-        sender_address: String,
-        headers: HashMap<String, String>,
-    ) -> Message {
-        Self::ping_with_headers_and_body(sender_name, sender_address, headers, None)
-    }
-
-    pub fn ping(sender_name: String, sender_address: String) -> Message {
-        Self::ping_with_headers_and_body(sender_name, sender_address, HashMap::new(), None)
-    }
-
-    pub fn ack(sender_name: String, sender_address: String) -> Message {
-        let mut headers = HashMap::new();
-        headers.insert("sender_name".into(), sender_name);
-        headers.insert("sender_address".into(), sender_address);
-
-        Message::new("HTTP/1.1 200 OK", headers, None)
-    }
-
-    pub fn send(&self, tcp_stream: &mut TcpStream) {
-        tcp_stream.write_all(self.to_string().as_bytes()).unwrap();
     }
 }
 
@@ -134,17 +143,199 @@ mod message_tests {
     use super::*;
 
     #[test]
+    fn test_ping() {
+        let sender_name = "My Device";
+        let sender_address = "123.234.210.123:12345";
+
+        let message = Message::ping(sender_name, sender_address);
+        let actual = message.to_string();
+
+        let expected = [
+            "GET / HTTP/1.1",
+            "sender_address: 123.234.210.123:12345",
+            "sender_name: My Device",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_ping_with_headers() {
+        let sender_name = "My Device";
+        let sender_address = "123.234.210.123:12345";
+
+        let message = Message::ping(sender_name, sender_address);
+
+        let mut headers = HashMap::new();
+        headers.insert("foo", "bar");
+
+        let message = message.with_headers(headers);
+        let actual = message.to_string();
+
+        let expected = [
+            "GET / HTTP/1.1",
+            "foo: bar",
+            "sender_address: 123.234.210.123:12345",
+            "sender_name: My Device",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_ping_with_body() {
+        let sender_name = "My Device";
+        let sender_address = "123.234.210.123:12345";
+
+        let message = Message::ping(sender_name, sender_address);
+
+        let body = "Hello, World!";
+
+        let message = message.with_body(body);
+        let actual = message.to_string();
+
+        let expected = [
+            "GET / HTTP/1.1",
+            "Content-Length: 13",
+            "sender_address: 123.234.210.123:12345",
+            "sender_name: My Device",
+            "",
+            "Hello, World!",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_ping_with_headers_with_body() {
+        let sender_name = "My Device";
+        let sender_address = "123.234.210.123:12345";
+
+        let message = Message::ping(sender_name, sender_address);
+
+        let mut headers = HashMap::new();
+        headers.insert("foo", "bar");
+        let body = "Hello, World!";
+
+        let message = message.with_headers(headers).with_body(body);
+        let actual = message.to_string();
+
+        let expected = [
+            "GET / HTTP/1.1",
+            "Content-Length: 13",
+            "foo: bar",
+            "sender_address: 123.234.210.123:12345",
+            "sender_name: My Device",
+            "",
+            "Hello, World!",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
     fn test_ack() {
         let sender_name = "My Device";
         let sender_address = "123.234.210.123:12345";
-        let message = Message::ack(sender_name.into(), sender_address.into());
 
-        let serialized = message.to_string();
+        let message = Message::ack(sender_name, sender_address);
+        let actual = message.to_string();
 
-        assert!(serialized.starts_with("HTTP/1.1 200 OK\r\n"));
-        assert!(serialized.ends_with("\r\n\r\n"));
+        let expected = [
+            "HTTP/1.1 200 OK",
+            "sender_address: 123.234.210.123:12345",
+            "sender_name: My Device",
+        ]
+        .join("\r\n");
 
-        assert!(serialized.contains("\r\nsender_name: My Device\r\n"));
-        assert!(serialized.contains("\r\nsender_address: 123.234.210.123:12345\r\n"));
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_write() {
+        let sender_name = "My Device";
+        let sender_address = "123.234.210.123:12345";
+
+        let message = Message::ack(sender_name, sender_address);
+
+        let mut tcp_stream = Vec::new();
+        message.write(&mut tcp_stream);
+        let actual = String::from_utf8(tcp_stream).unwrap();
+
+        let expected = [
+            "HTTP/1.1 200 OK",
+            "sender_address: 123.234.210.123:12345",
+            "sender_name: My Device",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_read() {
+        let sender_name = "My Device";
+        let sender_address = "123.234.210.123:12345";
+
+        let expected = Message::ack(sender_name, sender_address);
+
+        let serialized = [
+            "HTTP/1.1 200 OK",
+            "sender_address: 123.234.210.123:12345",
+            "sender_name: My Device",
+        ]
+        .join("\r\n");
+
+        let actual = Message::read(serialized.as_bytes()).unwrap();
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn test_read_with_misformatted_header() {
+        let sender_name = "My Device";
+        let sender_address = "123.234.210.123:12345";
+
+        let expected = Message::ack(sender_name, sender_address);
+
+        let serialized = [
+            "HTTP/1.1 200 OK",
+            "sender_address: 123.234.210.123:12345",
+            "sender_name: My Device",
+            "kablooie", // this line is misformatted, it should be skipped
+        ]
+        .join("\r\n");
+
+        let actual = Message::read(serialized.as_bytes()).unwrap();
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn test_read_with_body() {
+        let sender_name = "My Device";
+        let sender_address = "123.234.210.123:12345";
+
+        let message = Message::ping(sender_name, sender_address);
+        let body = "Hello, World!";
+        let expected = message.with_body(body);
+
+        let serialized = [
+            "GET / HTTP/1.1",
+            "Content-Length: 13",
+            "sender_address: 123.234.210.123:12345",
+            "sender_name: My Device",
+            "",
+            "Hello, World!",
+        ]
+        .join("\r\n");
+
+        let actual = Message::read(serialized.as_bytes()).unwrap();
+
+        assert_eq!(actual, expected)
     }
 }

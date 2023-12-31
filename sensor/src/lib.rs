@@ -61,8 +61,8 @@ pub trait Sensor: Device {
 
                     let handler: Handler = Box::new(move |stream| {
                         if let Ok(request) = Self::ack_and_parse_request(
-                            sender_name.clone(),
-                            sender_address.clone(),
+                            sender_name.as_str(),
+                            sender_address.as_str(),
                             stream,
                         ) {
                             if request.headers.get("sender_name")
@@ -75,18 +75,16 @@ pub trait Sensor: Device {
                                 let mut stream = TcpStream::connect(env).unwrap();
 
                                 let mut headers = HashMap::new();
-                                headers.insert("id".into(), self_id.clone());
-                                headers.insert("kind".into(), self_kind.clone());
-                                headers.insert("unit".into(), self_unit.clone());
-                                headers.insert("mode".into(), "request".into());
+                                headers.insert("id", self_id.as_str());
+                                headers.insert("kind", self_kind.as_str());
+                                headers.insert("unit", self_unit.as_str());
+                                headers.insert("mode", "request");
 
-                                let request = Message::ping_with_headers(
-                                    sender_name.clone(),
-                                    sender_address.clone(),
-                                    headers,
-                                );
+                                let request =
+                                    Message::ping(sender_name.as_str(), sender_address.as_str())
+                                        .with_headers(headers);
                                 println!("[Sensor] forwarding request to Environment\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
-                                request.send(&mut stream);
+                                request.write(&mut stream);
                             } else if request.headers.get("sender_name")
                                 == Some(&String::from("Environment"))
                             {
@@ -97,18 +95,16 @@ pub trait Sensor: Device {
                                 let mut stream = TcpStream::connect(controller).unwrap();
 
                                 let mut headers = HashMap::new();
-                                headers.insert("id".into(), self_id.clone());
-                                headers.insert("model".into(), self_model.clone());
+                                headers.insert("id", self_id.as_str());
+                                headers.insert("model", self_model.as_str());
 
-                                let request = Message::ping_with_headers_and_body(
-                                    sender_name.clone(),
-                                    sender_address.clone(),
-                                    headers,
-                                    request.body,
-                                );
+                                let request =
+                                    Message::ping(sender_name.as_str(), sender_address.as_str())
+                                        .with_headers(headers)
+                                        .with_body(request.body.unwrap());
 
                                 println!("[Sensor] forwarding Datum to Controller\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
-                                request.send(&mut stream);
+                                request.write(&mut stream);
                             } else {
                                 println!("[Sensor] received request from unhandled sender '{:?}'. Ignoring.", request.headers.get("sender_name"));
                             }
