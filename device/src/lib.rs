@@ -21,6 +21,12 @@ pub mod name;
 /// A `Handler` describes how a `Device` should handle incoming HTTP requests.
 pub type Handler = Box<dyn Fn(&mut TcpStream)>;
 
+/// A _target_ is a `Device` to which _this_ `Device` _sends_ `Message`s.
+///
+/// A `Device` can be uniquely identified by its `Id`, but to send it a message,
+/// we also need its `Address`.
+pub type Targets = Arc<Mutex<HashMap<Id, ServiceInfo>>>;
+
 /// A `Device` exists on the network and is discoverable via mDNS.
 pub trait Device {
     /// Returns the user-friendly name of this `Device`.
@@ -126,13 +132,7 @@ pub trait Device {
     /// **Design Decision**: each `Device` creates its own `ServiceDaemon` when it is `run` so that
     /// multiple `Device`s can consume the same event from mDNS (e.g. the event which broadcasts
     /// that some other `Device` has been registered).
-    fn run(
-        &self,
-        ip: IpAddr,
-        port: u16,
-        group: &str,
-        targets: HashMap<String, &Arc<Mutex<HashMap<Id, ServiceInfo>>>>,
-    ) {
+    fn run(&self, ip: IpAddr, port: u16, group: &str, targets: HashMap<String, Targets>) {
         let mdns = ServiceDaemon::new().unwrap();
 
         for (group, devices) in targets.iter() {
@@ -159,12 +159,7 @@ pub trait Device {
     }
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
-    fn discover(
-        &self,
-        group: &str,
-        devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>,
-        mdns: ServiceDaemon,
-    ) -> JoinHandle<()> {
+    fn discover(&self, group: &str, devices: &Targets, mdns: ServiceDaemon) -> JoinHandle<()> {
         let group = String::from(group);
 
         // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads

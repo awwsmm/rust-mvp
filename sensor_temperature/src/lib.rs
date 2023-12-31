@@ -12,14 +12,14 @@ use device::address::Address;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Handler};
+use device::{Device, Handler, Targets};
 use sensor::Sensor;
 
 pub struct TemperatureSensor {
     id: Id,
     name: Name,
-    environment: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
-    controller: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    environment: Targets,
+    controller: Targets,
     address: Address,
 }
 
@@ -49,8 +49,8 @@ impl Device for TemperatureSensor {
             let device = Self::new(id, name, Address::new(ip, port));
 
             let mut targets = HashMap::new();
-            targets.insert("_controller".into(), &device.controller);
-            targets.insert("_environment".into(), &device.environment);
+            targets.insert("_controller".into(), Arc::clone(&device.controller));
+            targets.insert("_environment".into(), Arc::clone(&device.environment));
 
             device.run(ip, port, "_sensor", targets);
         })

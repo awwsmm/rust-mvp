@@ -1,10 +1,9 @@
+use mdns_sd::ServiceInfo;
 use std::collections::HashMap;
 use std::net::{IpAddr, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
-
-use mdns_sd::ServiceInfo;
 
 use datum::Datum;
 use device::address::Address;
@@ -149,8 +148,8 @@ impl Device for Controller {
             let device = Self::new(id, name, Address::new(ip, port));
 
             let mut targets = HashMap::new();
-            targets.insert("_sensor".into(), &device.state.sensors);
-            targets.insert("_actuator".into(), &device.state.actuators);
+            targets.insert("_sensor".into(), Arc::clone(&device.state.sensors));
+            targets.insert("_actuator".into(), Arc::clone(&device.state.actuators));
 
             Controller::poll(&device);
 

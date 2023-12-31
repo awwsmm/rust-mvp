@@ -10,14 +10,14 @@ use device::address::Address;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Handler};
+use device::{Device, Handler, Targets};
 
 pub mod command;
 
 pub struct TemperatureActuator {
     id: Id,
     name: Name,
-    pub env: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    pub env: Targets,
     address: Address,
 }
 
@@ -47,7 +47,7 @@ impl Device for TemperatureActuator {
             let device = Self::new(id, name, Address::new(ip, port));
 
             let mut targets = HashMap::new();
-            targets.insert("_environment".into(), &device.env);
+            targets.insert("_environment".into(), Arc::clone(&device.env));
 
             device.run(ip, port, "_actuator", targets);
         })
