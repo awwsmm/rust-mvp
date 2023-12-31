@@ -182,7 +182,7 @@ impl Controller {
 
         // send the minimum possible payload. We only want to ping the Sensor
         // see: https://stackoverflow.com/a/9734866
-        let ping = Message::ping(sender_name, sender_address);
+        let ping = Message::old_ping(sender_name, sender_address);
         ping.send(&mut tcp_stream);
     }
 

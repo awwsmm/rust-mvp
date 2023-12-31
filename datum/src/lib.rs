@@ -13,12 +13,12 @@ pub mod value;
 ///
 /// It contains a typed `value`, a `unit` associated with that value, and a `timestamp`.
 ///
-/// Design decision: `Datum`s are purposefully not generically-typed (no `T` parameter). Data is
+/// **Design Decision**: `Datum`s are purposefully not generically-typed (no `T` parameter). Data is
 /// communicated across HTTP / TCP and is consumed by a front-end HTML app, so we will lose type
 /// safety at those interfaces. Storing these data points in `Datum` structs anticipates this
 /// complication and tries to tackle it head-on.
 ///
-/// Design decision: `timestamp`s are of type `DateTime<Utc>` because the external crate `chrono`
+/// **Design Decision**: `timestamp`s are of type `DateTime<Utc>` because the external crate `chrono`
 /// provides useful methods for converting `DateTime<Utc>` values to strings / parsing them from
 /// strings. In this codebase, `timestamp`s are serialized to / deserialized from
 /// [RFC 3339](https://datatracker.ietf.org/doc/html/rfc3339) /

@@ -8,6 +8,7 @@ pub enum Kind {
     Bool,
     Float,
     Int,
+    // TODO add more data types here as they are supported
 }
 
 /// Allows `Kind`s to be converted to `String`s with `to_string()`.
