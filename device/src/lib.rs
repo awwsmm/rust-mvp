@@ -18,9 +18,7 @@ pub mod message;
 pub mod model;
 pub mod name;
 
-// We want to avoid blocking req-res loops and instead model
-// all communication in a "fire and forget" manner. We never listen for responses.
-// So every message gets responded to with an ACK (200 OK).
+/// A `Handler` describes how a `Device` should handle incoming HTTP requests.
 pub type Handler = Box<dyn Fn(&mut TcpStream)>;
 
 /// A `Device` exists on the network and is discoverable via mDNS.
@@ -34,7 +32,7 @@ pub trait Device {
     /// Returns the model of this `Device`, which may or may not be supported by the `Controller`.
     fn get_model() -> Model;
 
-    /// Returns the ip:port of this `Device` (e.g. "192.168.1.251:8787').
+    /// Returns the ip:port address of this `Device` (e.g. "192.168.1.251:8787').
     fn get_address(&self) -> Address;
 
     /// Returns the helper which defines how to handle HTTP requests.
@@ -42,7 +40,7 @@ pub trait Device {
 
     /// Registers this `Device` with mDNS in the specified group.
     fn register(&self, ip: IpAddr, port: u16, group: &str, mdns: ServiceDaemon) {
-        let host = ip.clone().to_string();
+        let host = ip.to_string();
         let label = self.get_name().to_string();
         let name = format!("{}.{}", self.get_id(), Self::get_model());
         let domain = format!("{}._tcp.local.", group);
@@ -53,9 +51,9 @@ pub trait Device {
         );
 
         let mut properties = HashMap::new();
-        properties.insert(String::from("id"), self.get_id().to_string());
-        properties.insert(String::from("name"), self.get_name().to_string());
-        properties.insert(String::from("model"), Self::get_model().to_string());
+        properties.insert("id".to_string(), self.get_id().to_string());
+        properties.insert("name".to_string(), self.get_name().to_string());
+        properties.insert("model".to_string(), Self::get_model().to_string());
 
         let my_service = ServiceInfo::new(
             domain.as_str(),
@@ -70,6 +68,7 @@ pub trait Device {
         mdns.register(my_service).unwrap()
     }
 
+    /// Extracts the `Address` of a `Device` from its `ServiceInfo` found via mDNS.
     fn extract_address(info: &ServiceInfo) -> Address {
         let ip = *info.get_addresses().iter().next().unwrap();
         let port = info.get_port();
@@ -77,8 +76,8 @@ pub trait Device {
     }
 
     /// Creates a `TcpListener` and binds it to the specified `ip` and `port`.
-    fn bind(&self, ip: IpAddr, port: u16) -> TcpListener {
-        let address = Address::new(ip, port).to_string();
+    fn bind(&self, address: Address) -> TcpListener {
+        let address = address.to_string();
         let name = &self.get_name();
 
         println!(
@@ -89,7 +88,13 @@ pub trait Device {
         TcpListener::bind(address).unwrap()
     }
 
-    /// Reads a message from a `TcpStream` and parses it into the message line, headers, and body.
+    /// Reads an HTTP request from a `TcpStream` and parses it into the request line, headers, and
+    /// body; then responds with a `200 OK` ACK to close the socket.
+    ///
+    /// **Design Decision**: in this codebase, `Message`s are HTTP requests. All communication happens asynchronously via
+    /// "fire and forget" HTTP requests (all responses to all messages are "200 OK"). This _asynchronous message-passing_
+    /// style of communication is the de-facto standard in
+    /// [microservices design](https://docs.aws.amazon.com/whitepapers/latest/microservices-on-aws/asynchronous-messaging-and-event-passing.html).
     fn ack_and_parse_request(
         sender_name: &str,
         sender_address: Address,
@@ -105,10 +110,10 @@ pub trait Device {
     }
 
     /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually
-    /// listen for incoming `TcpStream`s and handles them appropriately.
+    /// listen for incoming `TcpStream`s and handle them appropriately.
     fn respond(&self, ip: IpAddr, port: u16, group: &str, mdns: ServiceDaemon) {
-        self.register(ip, port, group, mdns.clone());
-        let listener = self.bind(ip, port);
+        self.register(ip, port, group, mdns);
+        let listener = self.bind(Address::new(ip, port));
 
         for stream in listener.incoming() {
             let mut stream = stream.unwrap();
@@ -116,7 +121,11 @@ pub trait Device {
         }
     }
 
-    /// Configures this `Device` to `respond` to incoming requests and discover `targets` for outgoing requests.
+    /// Configures this `Device` to [`respond`](Self::respond) to incoming requests and discover `targets` for outgoing requests.
+    ///
+    /// **Design Decision**: each `Device` creates its own `ServiceDaemon` when it is `run` so that
+    /// multiple `Device`s can consume the same event from mDNS (e.g. the event which broadcasts
+    /// that some other `Device` has been registered).
     fn run(
         &self,
         ip: IpAddr,
@@ -124,21 +133,26 @@ pub trait Device {
         group: &str,
         targets: HashMap<String, &Arc<Mutex<HashMap<Id, ServiceInfo>>>>,
     ) {
-        // each Device must have its own ServiceDaemon so multiple Devices can consume the same event
-        // (i.e. the Environment coming online)
         let mdns = ServiceDaemon::new().unwrap();
 
         for (group, devices) in targets.iter() {
             self.discover(group, devices, mdns.clone());
         }
-        self.respond(ip, port, group, mdns.clone())
+
+        self.respond(ip, port, group, mdns)
     }
 
+    /// Extracts the [`Id`](crate::Id) of a `Device` from its `ServiceInfo`.
+    ///
+    /// The `id` property is set when a device is [`register`ed](Self::register) with mDNS.
     fn extract_id(info: &ServiceInfo) -> Option<Id> {
         let id = info.get_property("id").map(|p| p.to_string());
         id.map(|i| Id::new(i.trim_start_matches("id=")))
     }
 
+    /// Extracts the [`Model`](crate::Model) of a `Device` from its `ServiceInfo`.
+    ///
+    /// The `model` property is set when a device is [`register`ed](Self::register) with mDNS.
     fn extract_model(info: &ServiceInfo) -> Option<Result<Model, String>> {
         let model = info.get_property("model").map(|p| p.to_string());
         model.map(|m| Model::parse(m.trim_start_matches("model=")))
@@ -156,10 +170,8 @@ pub trait Device {
         // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
         let devices_mutex = Arc::clone(devices);
         let self_name = self.get_name().to_string();
-        let mdns = mdns.clone();
 
         std::thread::spawn(move || {
-            // let mdns = mdns_sd::ServiceDaemon::new().unwrap();
             let service_type = format!("{}._tcp.local.", group);
             let receiver = mdns.browse(service_type.as_str()).unwrap();
 
