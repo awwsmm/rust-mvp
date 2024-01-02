@@ -5,6 +5,7 @@ use mdns_sd::ServiceInfo;
 use actuator::Actuator;
 use device::address::Address;
 use device::id::Id;
+use device::message::Message;
 use device::model::Model;
 use device::name::Name;
 use device::{Device, Handler};
@@ -35,8 +36,12 @@ impl Device for TemperatureActuator {
         self.address
     }
 
+    /// By default, an `Actuator` forwards all incoming requests to the `Environment`.
     fn get_handler(&self) -> Handler {
-        self.default_handler()
+        Box::new(move |stream| {
+            let response = Message::respond_not_implemented();
+            response.write(stream)
+        })
     }
 }
 

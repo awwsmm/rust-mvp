@@ -93,6 +93,10 @@ impl Message {
         message
     }
 
+    pub fn respond_not_implemented() -> Message {
+        Message::new("HTTP/1.1 501 Not Implemented", HashMap::new(), None)
+    }
+
     /// Writes this `Message` into the provided `tcp_stream`.
     pub fn write(&self, tcp_stream: &mut impl Write) {
         tcp_stream.write_all(self.to_string().as_bytes()).unwrap();

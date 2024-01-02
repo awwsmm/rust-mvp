@@ -180,7 +180,6 @@ pub trait Device: Sized {
         })
     }
 
-    /// Creates a new thread to continually discover `Device`s on the network in the specified group.
     fn discover_once(
         &self,
         group: &str,

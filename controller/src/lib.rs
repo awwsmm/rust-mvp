@@ -5,7 +5,6 @@ use std::thread::JoinHandle;
 
 use mdns_sd::ServiceDaemon;
 
-use datum::Datum;
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
@@ -53,93 +52,9 @@ impl Device for Controller {
 
     // TODO Controller should respond to HTTP requests from Sensors.
     fn get_handler(&self) -> Handler {
-        let sender_name = self.get_name().to_string().clone();
-        let sender_address = self.get_address();
-
-        let assessors = Arc::clone(&self.state.assessors);
-        let assessors = assessors.lock();
-        let assessors = assessors.unwrap().clone();
-
-        let actuators = Arc::clone(&self.state.actuators);
-        let actuators = actuators.lock();
-        let actuators = actuators.unwrap().clone();
-
         Box::new(move |stream| {
-            if let Ok(request) =
-                Self::ack_and_parse_request(sender_name.as_str(), sender_address, stream)
-            {
-                println!(
-                    "[Controller] received message (ignoring for now)\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
-                    request
-                );
-
-                if request.headers.get("sender_name") == Some(&String::from("Web App")) {
-                    println!(
-                        "[Controller] received request from Web App\nvvvvvvvvvv\n{}\n^^^^^^^^^^",
-                        request
-                    );
-                } else {
-                    println!("[Controller] received request from (what is assumed to be a) Sensor\nvvvvvvvvvv\n{}\n^^^^^^^^^^", request);
-
-                    println!(
-                        "[Controller] available assessors: {:?}",
-                        assessors.keys().map(|each| each.to_string())
-                    );
-
-                    let id = Id::new(request.headers.get("id").unwrap());
-                    let model = Model::parse(request.headers.get("model").unwrap()).unwrap();
-
-                    if let Some(assessor) = assessors
-                        .get(&id)
-                        .or_else(|| DEFAULT_ASSESSOR.get(model.to_string().as_str()))
-                    {
-                        println!("[Controller] found assessor");
-
-                        let datum = Datum::parse(request.body.unwrap().as_str()).unwrap();
-
-                        println!("[Controller] parsed Datum from request body: {}", datum);
-
-                        match (assessor.assess)(&datum) {
-                            None => println!("[Controller] assessed Datum, but will not produce Command for Actuator"),
-                            Some(command) => {
-                                println!(
-                                    "[Controller] sending command to Actuator: {}",
-                                    command
-                                );
-
-                                match actuators.get(&id) {
-                                    None => println!("[Controller] cannot find Actuator with id: {}", id),
-                                    Some(actuator) => {
-                                        let actuator = <Self as Device>::extract_address(actuator).to_string();
-                                        println!("[Sensor] connecting to Actuator @ {}", actuator);
-
-                                        let mut stream = TcpStream::connect(actuator).unwrap();
-
-                                        let command = Message::ping(
-                                            sender_name.as_str(),
-                                            sender_address
-                                        ).with_body(
-                                            command.to_string()
-                                        );
-
-                                        println!("[Controller] sending Command to Actuator\nvvvvvvvvvv\n{}\n^^^^^^^^^^", command);
-
-                                        command.write(&mut stream);
-
-                                    }
-                                }
-
-                            }
-                        }
-                    } else {
-                        println!(
-                            "[Controller] assessor does not contain id: {}\nknown ids: {:?}",
-                            id,
-                            assessors.keys()
-                        )
-                    }
-                }
-            }
+            let response = Message::respond_not_implemented();
+            response.write(stream)
         })
     }
 }

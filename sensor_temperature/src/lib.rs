@@ -6,6 +6,7 @@ use datum::kind::Kind;
 use datum::unit::Unit;
 use device::address::Address;
 use device::id::Id;
+use device::message::Message;
 use device::model::Model;
 use device::name::Name;
 use device::{Device, Handler};
@@ -36,8 +37,12 @@ impl Device for TemperatureSensor {
         self.address
     }
 
+    /// By default, a `Sensor` responds to any request with the latest `Datum`.
     fn get_handler(&self) -> Handler {
-        self.default_handler()
+        Box::new(move |stream| {
+            let response = Message::respond_not_implemented();
+            response.write(stream)
+        })
     }
 }
 
