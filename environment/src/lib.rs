@@ -182,19 +182,6 @@ impl Device for Environment {
             }
         })
     }
-
-    fn targets_by_group(&self) -> HashMap<String, Targets> {
-        HashMap::new()
-    }
-
-    fn new(id: Id, name: Name, address: Address) -> Self {
-        Self {
-            name,
-            id,
-            attributes: Arc::new(Mutex::new(HashMap::new())),
-            address,
-        }
-    }
 }
 
 impl Environment {
@@ -260,5 +247,18 @@ impl Environment {
 
             device.respond(ip, port, group.as_str(), mdns)
         })
+    }
+
+    fn targets_by_group(&self) -> HashMap<String, Targets> {
+        HashMap::new()
+    }
+
+    fn new(id: Id, name: Name, address: Address) -> Self {
+        Self {
+            name,
+            id,
+            attributes: Arc::new(Mutex::new(HashMap::new())),
+            address,
+        }
     }
 }

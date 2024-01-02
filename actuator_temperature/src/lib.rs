@@ -39,6 +39,14 @@ impl Device for TemperatureActuator {
     fn get_handler(&self) -> Handler {
         self.default_handler()
     }
+}
+
+impl Actuator for TemperatureActuator {
+    fn get_environment(&self) -> Option<ServiceInfo> {
+        let lock = self.env.lock();
+        let guard = lock.unwrap();
+        guard.get(&Id::new("environment")).cloned()
+    }
 
     fn targets_by_group(&self) -> HashMap<String, Targets> {
         let mut map = HashMap::new();
@@ -53,13 +61,5 @@ impl Device for TemperatureActuator {
             env: Arc::new(Mutex::new(HashMap::new())),
             address,
         }
-    }
-}
-
-impl Actuator for TemperatureActuator {
-    fn get_environment(&self) -> Option<ServiceInfo> {
-        let lock = self.env.lock();
-        let guard = lock.unwrap();
-        guard.get(&Id::new("environment")).cloned()
     }
 }

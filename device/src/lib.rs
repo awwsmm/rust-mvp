@@ -174,8 +174,4 @@ pub trait Device: Sized {
             }
         })
     }
-
-    fn targets_by_group(&self) -> HashMap<String, Targets>;
-
-    fn new(id: Id, name: Name, address: Address) -> Self;
 }

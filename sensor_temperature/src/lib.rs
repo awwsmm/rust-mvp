@@ -40,23 +40,6 @@ impl Device for TemperatureSensor {
     fn get_handler(&self) -> Handler {
         self.default_handler()
     }
-
-    fn targets_by_group(&self) -> HashMap<String, Targets> {
-        let mut map = HashMap::new();
-        map.insert("_controller".into(), Arc::clone(&self.controller));
-        map.insert("_environment".into(), Arc::clone(&self.environment));
-        map
-    }
-
-    fn new(id: Id, name: Name, address: Address) -> TemperatureSensor {
-        TemperatureSensor {
-            id,
-            name,
-            environment: Arc::new(Mutex::new(HashMap::new())),
-            controller: Arc::new(Mutex::new(HashMap::new())),
-            address,
-        }
-    }
 }
 
 impl Sensor for TemperatureSensor {
@@ -78,5 +61,22 @@ impl Sensor for TemperatureSensor {
 
     fn get_datum_unit(&self) -> Unit {
         Unit::DegreesC
+    }
+
+    fn targets_by_group(&self) -> HashMap<String, Targets> {
+        let mut map = HashMap::new();
+        map.insert("_controller".into(), Arc::clone(&self.controller));
+        map.insert("_environment".into(), Arc::clone(&self.environment));
+        map
+    }
+
+    fn new(id: Id, name: Name, address: Address) -> TemperatureSensor {
+        TemperatureSensor {
+            id,
+            name,
+            environment: Arc::new(Mutex::new(HashMap::new())),
+            controller: Arc::new(Mutex::new(HashMap::new())),
+            address,
+        }
     }
 }

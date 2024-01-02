@@ -141,22 +141,6 @@ impl Device for Controller {
             }
         })
     }
-
-    fn targets_by_group(&self) -> HashMap<String, Targets> {
-        let mut map = HashMap::new();
-        map.insert("_sensor".into(), Arc::clone(&self.state.sensors));
-        map.insert("_actuator".into(), Arc::clone(&self.state.actuators));
-        map
-    }
-
-    fn new(id: Id, name: Name, address: Address) -> Self {
-        Self {
-            name,
-            id,
-            state: State::new(),
-            address,
-        }
-    }
 }
 
 impl Controller {
@@ -204,5 +188,21 @@ impl Controller {
 
             device.respond(ip, port, group.as_str(), mdns)
         })
+    }
+
+    fn targets_by_group(&self) -> HashMap<String, Targets> {
+        let mut map = HashMap::new();
+        map.insert("_sensor".into(), Arc::clone(&self.state.sensors));
+        map.insert("_actuator".into(), Arc::clone(&self.state.actuators));
+        map
+    }
+
+    fn new(id: Id, name: Name, address: Address) -> Self {
+        Self {
+            name,
+            id,
+            state: State::new(),
+            address,
+        }
     }
 }

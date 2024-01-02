@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::net::{IpAddr, TcpStream};
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use device::message::Message;
-use device::{Device, Handler};
+use device::{Device, Handler, Targets};
 use device::address::Address;
 use device::id::Id;
 use device::name::Name;
@@ -103,6 +104,10 @@ pub trait Actuator: Device {
             device.respond(ip, port, group.as_str(), mdns)
         })
     }
+
+    fn targets_by_group(&self) -> HashMap<String, Targets>;
+
+    fn new(id: Id, name: Name, address: Address) -> Self;
 }
 
 pub trait Command: Display {}
