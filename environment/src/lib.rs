@@ -2,20 +2,20 @@ use std::collections::HashMap;
 use std::net::{IpAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
-use mdns_sd::ServiceDaemon;
 
-use rand::{thread_rng, Rng};
+use mdns_sd::ServiceDaemon;
+use rand::{Rng, thread_rng};
 
 use actuator_temperature::command::Command;
+use datum::Datum;
 use datum::kind::Kind;
 use datum::unit::Unit;
-use datum::Datum;
+use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Handler, Targets};
 
 use crate::generator::DatumGenerator;
 
@@ -185,14 +185,13 @@ impl Device for Environment {
 }
 
 impl Environment {
-    pub fn start_default(ip: IpAddr, port: u16) -> JoinHandle<()> {
-        Self::start(
-            ip,
-            port,
-            Id::new("environment"),
-            Name::new("Environment"),
-            "_environment".into(),
-        )
+    fn new(id: Id, name: Name, address: Address) -> Self {
+        Self {
+            name,
+            id,
+            attributes: Arc::new(Mutex::new(HashMap::new())),
+            address,
+        }
     }
 
     fn get(
@@ -233,32 +232,11 @@ impl Environment {
         }
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
+    pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             let device = Self::new(id, name, Address::new(ip, port));
-
-            let targets = device.targets_by_group();
-
             let mdns = ServiceDaemon::new().unwrap();
-
-            for (group, devices) in targets.iter() {
-                device.discover(group, devices, mdns.clone());
-            }
-
             device.respond(ip, port, group.as_str(), mdns)
         })
-    }
-
-    fn targets_by_group(&self) -> HashMap<String, Targets> {
-        HashMap::new()
-    }
-
-    fn new(id: Id, name: Name, address: Address) -> Self {
-        Self {
-            name,
-            id,
-            attributes: Arc::new(Mutex::new(HashMap::new())),
-            address,
-        }
     }
 }

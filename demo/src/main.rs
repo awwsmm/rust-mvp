@@ -53,7 +53,7 @@ fn main() {
     // --------------------------------------------------------------------------------
 
     let environment_port = 5454;
-    Environment::start_default(ip, environment_port);
+    Environment::start(ip, environment_port, Id::new("environment"), Name::new("Environment"), String::from("_environment"));
 
     // we continually tell the Controller to poll the sensors
     loop {
