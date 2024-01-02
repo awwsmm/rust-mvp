@@ -127,21 +127,6 @@ pub trait Device: Sized {
         }
     }
 
-    /// Configures this `Device` to [`respond`](Self::respond) to incoming requests and discover `targets` for outgoing requests.
-    ///
-    /// **Design Decision**: each `Device` creates its own `ServiceDaemon` when it is `run` so that
-    /// multiple `Device`s can consume the same event from mDNS (e.g. the event which broadcasts
-    /// that some other `Device` has been registered).
-    fn run(&self, ip: IpAddr, port: u16, group: &str, targets: HashMap<String, Targets>) {
-        let mdns = ServiceDaemon::new().unwrap();
-
-        for (group, devices) in targets.iter() {
-            self.discover(group, devices, mdns.clone());
-        }
-
-        self.respond(ip, port, group, mdns)
-    }
-
     /// Extracts the [`Id`](crate::Id) of a `Device` from its `ServiceInfo`.
     ///
     /// The `id` property is set when a device is [`register`ed](Self::register) with mDNS.
@@ -197,7 +182,16 @@ pub trait Device: Sized {
     fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             let device = Self::new(id, name, Address::new(ip, port));
-            device.run(ip, port, group.as_str(), device.targets_by_group());
+
+            let targets = device.targets_by_group();
+
+            let mdns = ServiceDaemon::new().unwrap();
+
+            for (group, devices) in targets.iter() {
+                device.discover(group, devices, mdns.clone());
+            }
+
+            device.respond(ip, port, group.as_str(), mdns)
         })
     }
 }
