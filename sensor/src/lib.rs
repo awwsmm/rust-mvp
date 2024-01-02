@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, TcpStream};
-use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -8,10 +7,10 @@ use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use datum::kind::Kind;
 use datum::unit::Unit;
-use device::message::Message;
 use device::{Device, Handler, Targets};
 use device::address::Address;
 use device::id::Id;
+use device::message::Message;
 use device::name::Name;
 
 /// A Sensor collects data from the Environment.
@@ -130,7 +129,7 @@ pub trait Sensor: Device {
             let mdns = ServiceDaemon::new().unwrap();
 
             for (group, devices) in targets.iter() {
-                device.discover(group, devices, mdns.clone());
+                device.discover_continually(group, devices, mdns.clone());
             }
 
             device.respond(ip, port, group.as_str(), mdns)

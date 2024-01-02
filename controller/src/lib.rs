@@ -185,7 +185,7 @@ impl Controller {
             let mdns = ServiceDaemon::new().unwrap();
 
             for (group, devices) in targets.iter() {
-                device.discover(group, devices, mdns.clone());
+                device.discover_continually(group, devices, mdns.clone());
             }
 
             device.respond(ip, port, group.as_str(), mdns)

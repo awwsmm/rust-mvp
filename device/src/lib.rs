@@ -144,7 +144,7 @@ pub trait Device: Sized {
     }
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
-    fn discover(&self, group: &str, devices: &Targets, mdns: ServiceDaemon) -> JoinHandle<()> {
+    fn discover_continually(&self, group: &str, devices: &Targets, mdns: ServiceDaemon) -> JoinHandle<()> {
         let group = String::from(group);
 
         // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
@@ -170,6 +170,37 @@ pub trait Device: Sized {
                     );
 
                     id.map(|i| devices_guard.insert(i, info));
+                }
+            }
+        })
+    }
+
+    /// Creates a new thread to continually discover `Device`s on the network in the specified group.
+    fn discover_once(&self, group: &str, devices: &Arc<Mutex<Option<ServiceInfo>>>, mdns: ServiceDaemon) -> JoinHandle<()> {
+        let group = String::from(group);
+
+        let mutex = Arc::clone(devices);
+        let self_name = self.get_name().to_string();
+
+        std::thread::spawn(move || {
+            let service_type = format!("{}._tcp.local.", group);
+            let receiver = mdns.browse(service_type.as_str()).unwrap();
+
+            while let Ok(event) = receiver.recv() {
+                if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
+                    let devices_lock = mutex.lock();
+                    let mut device = devices_lock.unwrap();
+
+                    println!(
+                        "[Device::discover] \"{}\" discovered \"{}\"",
+                        self_name,
+                        info.get_property("name")
+                            .map(|p| p.val_str())
+                            .unwrap_or("<unknown>")
+                    );
+
+                    let _ = device.insert(info);
+                    break;
                 }
             }
         })

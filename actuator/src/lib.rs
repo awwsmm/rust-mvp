@@ -1,16 +1,15 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::net::{IpAddr, TcpStream};
-use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
-use device::message::Message;
 use device::{Device, Handler, Targets};
 use device::address::Address;
 use device::id::Id;
+use device::message::Message;
 use device::name::Name;
 
 /// An Actuator mutates the Environment.
@@ -98,7 +97,7 @@ pub trait Actuator: Device {
             let mdns = ServiceDaemon::new().unwrap();
 
             for (group, devices) in targets.iter() {
-                device.discover(group, devices, mdns.clone());
+                device.discover_continually(group, devices, mdns.clone());
             }
 
             device.respond(ip, port, group.as_str(), mdns)
