@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::net::{IpAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
+use mdns_sd::ServiceDaemon;
 
 use rand::{thread_rng, Rng};
 
@@ -243,5 +244,21 @@ impl Environment {
                 attributes.get_mut(id).unwrap().generate()
             }
         }
+    }
+
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
+        std::thread::spawn(move || {
+            let device = Self::new(id, name, Address::new(ip, port));
+
+            let targets = device.targets_by_group();
+
+            let mdns = ServiceDaemon::new().unwrap();
+
+            for (group, devices) in targets.iter() {
+                device.discover(group, devices, mdns.clone());
+            }
+
+            device.respond(ip, port, group.as_str(), mdns)
+        })
     }
 }

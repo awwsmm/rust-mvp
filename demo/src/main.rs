@@ -2,13 +2,15 @@ use std::time::Duration;
 
 use uuid::Uuid;
 
+use actuator::Actuator;
 use actuator_temperature::TemperatureActuator;
 use controller::Controller;
 use device::address::Address;
+use device::Device;
 use device::id::Id;
 use device::name::Name;
-use device::Device;
 use environment::Environment;
+use sensor::Sensor;
 use sensor_temperature::TemperatureSensor;
 
 fn main() {
@@ -24,7 +26,7 @@ fn main() {
 
     // here is the Sensor
     let sensor_port = 8787;
-    <TemperatureSensor as Device>::start(
+    TemperatureSensor::start(
         ip,
         sensor_port,
         id.clone(),
@@ -33,7 +35,7 @@ fn main() {
     );
 
     // here is the Actuator
-    <TemperatureActuator as Device>::start(
+    TemperatureActuator::start(
         ip,
         9898,
         id.clone(),

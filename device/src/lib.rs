@@ -178,20 +178,4 @@ pub trait Device: Sized {
     fn targets_by_group(&self) -> HashMap<String, Targets>;
 
     fn new(id: Id, name: Name, address: Address) -> Self;
-
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
-        std::thread::spawn(move || {
-            let device = Self::new(id, name, Address::new(ip, port));
-
-            let targets = device.targets_by_group();
-
-            let mdns = ServiceDaemon::new().unwrap();
-
-            for (group, devices) in targets.iter() {
-                device.discover(group, devices, mdns.clone());
-            }
-
-            device.respond(ip, port, group.as_str(), mdns)
-        })
-    }
 }

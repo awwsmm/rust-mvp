@@ -1,12 +1,16 @@
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::net::TcpStream;
+use std::net::{IpAddr, TcpStream};
+use std::thread::JoinHandle;
 use std::time::Duration;
 
-use mdns_sd::ServiceInfo;
+use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use device::message::Message;
 use device::{Device, Handler};
+use device::address::Address;
+use device::id::Id;
+use device::name::Name;
 
 /// An Actuator mutates the Environment.
 pub trait Actuator: Device {
@@ -82,6 +86,22 @@ pub trait Actuator: Device {
 
     fn get_handler(&self) -> Handler {
         self.default_handler()
+    }
+
+    fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
+        std::thread::spawn(move || {
+            let device = Self::new(id, name, Address::new(ip, port));
+
+            let targets = device.targets_by_group();
+
+            let mdns = ServiceDaemon::new().unwrap();
+
+            for (group, devices) in targets.iter() {
+                device.discover(group, devices, mdns.clone());
+            }
+
+            device.respond(ip, port, group.as_str(), mdns)
+        })
     }
 }
 
