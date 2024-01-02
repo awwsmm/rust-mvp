@@ -4,11 +4,11 @@ use mdns_sd::ServiceInfo;
 
 use datum::kind::Kind;
 use datum::unit::Unit;
-use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
+use device::{Device, Handler};
 use sensor::Sensor;
 
 pub struct TemperatureSensor {

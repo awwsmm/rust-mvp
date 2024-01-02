@@ -3,11 +3,11 @@ use std::sync::{Arc, Mutex};
 use mdns_sd::ServiceInfo;
 
 use actuator::Actuator;
-use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
+use device::{Device, Handler};
 
 pub mod command;
 

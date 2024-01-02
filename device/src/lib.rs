@@ -144,7 +144,12 @@ pub trait Device: Sized {
     }
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
-    fn discover_continually(&self, group: &str, devices: &Targets, mdns: ServiceDaemon) -> JoinHandle<()> {
+    fn discover_continually(
+        &self,
+        group: &str,
+        devices: &Targets,
+        mdns: ServiceDaemon,
+    ) -> JoinHandle<()> {
         let group = String::from(group);
 
         // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
@@ -176,7 +181,12 @@ pub trait Device: Sized {
     }
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
-    fn discover_once(&self, group: &str, devices: &Arc<Mutex<Option<ServiceInfo>>>, mdns: ServiceDaemon) -> JoinHandle<()> {
+    fn discover_once(
+        &self,
+        group: &str,
+        devices: &Arc<Mutex<Option<ServiceInfo>>>,
+        mdns: ServiceDaemon,
+    ) -> JoinHandle<()> {
         let group = String::from(group);
 
         let mutex = Arc::clone(devices);

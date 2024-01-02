@@ -4,18 +4,18 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
 use mdns_sd::ServiceDaemon;
-use rand::{Rng, thread_rng};
+use rand::{thread_rng, Rng};
 
 use actuator_temperature::command::Command;
-use datum::Datum;
 use datum::kind::Kind;
 use datum::unit::Unit;
-use device::{Device, Handler};
+use datum::Datum;
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
+use device::{Device, Handler};
 
 use crate::generator::DatumGenerator;
 

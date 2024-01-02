@@ -6,12 +6,12 @@ use std::thread::JoinHandle;
 use mdns_sd::ServiceDaemon;
 
 use datum::Datum;
-use device::{Device, Handler, Targets};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
+use device::{Device, Handler, Targets};
 
 use crate::assessor::DEFAULT_ASSESSOR;
 use crate::state::State;

@@ -8,11 +8,11 @@ use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use datum::kind::Kind;
 use datum::unit::Unit;
-use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::name::Name;
+use device::{Device, Handler};
 
 /// A Sensor collects data from the Environment.
 pub trait Sensor: Device {

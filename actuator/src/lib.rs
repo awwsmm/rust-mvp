@@ -7,11 +7,11 @@ use std::time::Duration;
 
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
-use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::name::Name;
+use device::{Device, Handler};
 
 /// An Actuator mutates the Environment.
 pub trait Actuator: Device {
