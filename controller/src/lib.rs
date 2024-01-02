@@ -2,15 +2,16 @@ use std::collections::HashMap;
 use std::net::{IpAddr, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
+
 use mdns_sd::ServiceDaemon;
 
 use datum::Datum;
+use device::{Device, Handler, Targets};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Handler, Targets};
 
 use crate::assessor::DEFAULT_ASSESSOR;
 use crate::state::State;
@@ -144,14 +145,13 @@ impl Device for Controller {
 }
 
 impl Controller {
-    pub fn start_default(ip: IpAddr, port: u16) -> JoinHandle<()> {
-        Self::start(
-            ip,
-            port,
-            Id::new("controller"),
-            Name::new("Controller"),
-            "_controller".into(),
-        )
+    fn new(id: Id, name: Name, address: Address) -> Self {
+        Self {
+            name,
+            id,
+            state: State::new(),
+            address,
+        }
     }
 
     #[allow(dead_code)] // FIXME remove ASAP
@@ -174,11 +174,13 @@ impl Controller {
         &self.state.sensors
     }
 
-    fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
+    pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             let device = Self::new(id, name, Address::new(ip, port));
 
-            let targets = device.targets_by_group();
+            let mut targets = HashMap::new();
+            targets.insert("_sensor", Arc::clone(&device.state.sensors));
+            targets.insert("_actuator", Arc::clone(&device.state.actuators));
 
             let mdns = ServiceDaemon::new().unwrap();
 
@@ -188,21 +190,5 @@ impl Controller {
 
             device.respond(ip, port, group.as_str(), mdns)
         })
-    }
-
-    fn targets_by_group(&self) -> HashMap<String, Targets> {
-        let mut map = HashMap::new();
-        map.insert("_sensor".into(), Arc::clone(&self.state.sensors));
-        map.insert("_actuator".into(), Arc::clone(&self.state.actuators));
-        map
-    }
-
-    fn new(id: Id, name: Name, address: Address) -> Self {
-        Self {
-            name,
-            id,
-            state: State::new(),
-            address,
-        }
     }
 }

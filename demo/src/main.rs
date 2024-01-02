@@ -6,7 +6,6 @@ use actuator::Actuator;
 use actuator_temperature::TemperatureActuator;
 use controller::Controller;
 use device::address::Address;
-use device::Device;
 use device::id::Id;
 use device::name::Name;
 use environment::Environment;
@@ -47,8 +46,7 @@ fn main() {
     // spin up the controller
     // --------------------------------------------------------------------------------
 
-    let controller_port = 6565;
-    Controller::start_default(ip, controller_port);
+    Controller::start(ip, 6565, Id::new("controller"), Name::new("Controller"), String::from("_controller"));
 
     // --------------------------------------------------------------------------------
     // spin up the controller
