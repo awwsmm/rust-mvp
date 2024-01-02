@@ -16,6 +16,8 @@ use device::name::Name;
 
 /// A Sensor collects data from the Environment.
 pub trait Sensor: Device {
+    fn new(id: Id, name: Name, address: Address) -> Self;
+
     fn get_environment(&self) -> &Arc<Mutex<Option<ServiceInfo>>>;
 
     fn get_controller(&self) -> &Arc<Mutex<Option<ServiceInfo>>>;
@@ -137,6 +139,4 @@ pub trait Sensor: Device {
             device.respond(ip, port, group.as_str(), mdns)
         })
     }
-
-    fn new(id: Id, name: Name, address: Address) -> Self;
 }

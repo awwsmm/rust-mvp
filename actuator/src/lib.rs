@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::net::{IpAddr, TcpStream};
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
-use device::{Device, Handler, Targets};
+use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
@@ -14,13 +15,17 @@ use device::name::Name;
 
 /// An Actuator mutates the Environment.
 pub trait Actuator: Device {
-    fn get_environment(&self) -> Option<ServiceInfo>;
+    fn new(id: Id, name: Name, address: Address) -> Self;
+
+    fn get_environment(&self) -> &Arc<Mutex<Option<ServiceInfo>>>;
+
+    fn get_environment_info(&self) -> Option<ServiceInfo>;
 
     /// By default, an `Actuator` forwards all incoming requests to the `Environment`.
     fn default_handler(&self) -> Handler {
         loop {
             // loop until there is an environment to forward commands to
-            match self.get_environment() {
+            match self.get_environment_info() {
                 None => {
                     println!(
                         "[Actuator] \"{}\" could not find environment",
@@ -92,21 +97,13 @@ pub trait Actuator: Device {
         std::thread::spawn(move || {
             let device = Self::new(id, name, Address::new(ip, port));
 
-            let targets = device.targets_by_group();
-
             let mdns = ServiceDaemon::new().unwrap();
 
-            for (group, devices) in targets.iter() {
-                device.discover_continually(group, devices, mdns.clone());
-            }
+            device.discover_once("_environment", device.get_environment(), mdns.clone());
 
             device.respond(ip, port, group.as_str(), mdns)
         })
     }
-
-    fn targets_by_group(&self) -> HashMap<String, Targets>;
-
-    fn new(id: Id, name: Name, address: Address) -> Self;
 }
 
 pub trait Command: Display {}

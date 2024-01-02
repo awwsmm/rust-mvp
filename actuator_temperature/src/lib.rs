@@ -1,21 +1,20 @@
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use mdns_sd::ServiceInfo;
 
 use actuator::Actuator;
+use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Handler, Targets};
 
 pub mod command;
 
 pub struct TemperatureActuator {
     id: Id,
     name: Name,
-    pub env: Targets,
+    environment: Arc<Mutex<Option<ServiceInfo>>>,
     address: Address,
 }
 
@@ -42,24 +41,22 @@ impl Device for TemperatureActuator {
 }
 
 impl Actuator for TemperatureActuator {
-    fn get_environment(&self) -> Option<ServiceInfo> {
-        let lock = self.env.lock();
-        let guard = lock.unwrap();
-        guard.get(&Id::new("environment")).cloned()
-    }
-
-    fn targets_by_group(&self) -> HashMap<String, Targets> {
-        let mut map = HashMap::new();
-        map.insert("_environment".into(), Arc::clone(&self.env));
-        map
-    }
-
     fn new(id: Id, name: Name, address: Address) -> Self {
         Self {
             id,
             name,
-            env: Arc::new(Mutex::new(HashMap::new())),
+            environment: Arc::new(Mutex::new(None)),
             address,
         }
+    }
+
+    fn get_environment(&self) -> &Arc<Mutex<Option<ServiceInfo>>> {
+        &self.environment
+    }
+
+    fn get_environment_info(&self) -> Option<ServiceInfo> {
+        let lock = self.environment.lock();
+        let guard = lock.unwrap();
+        guard.clone()
     }
 }
