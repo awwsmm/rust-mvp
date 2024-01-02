@@ -4,17 +4,17 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
 use mdns_sd::ServiceDaemon;
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 
+use datum::Datum;
 use datum::kind::Kind;
 use datum::unit::Unit;
-use datum::Datum;
+use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Handler};
 
 use crate::generator::DatumGenerator;
 
@@ -50,8 +50,17 @@ impl Device for Environment {
     // TODO Environment should respond to HTTP requests from Actuators and Sensors.
     fn get_handler(&self) -> Handler {
         Box::new(move |stream| {
-            let response = Message::respond_not_implemented();
-            response.write(stream)
+            if let Ok(message) = Message::read(stream) {
+                let body = format!("[Device] ignoring message: {}", message);
+                let response = Message::respond_not_implemented().with_body(body);
+                response.write(stream)
+
+            } else {
+                let body = "unable to read Message from TcpStream";
+                println!("[Device] {}", body);
+                let response = Message::respond_bad_request().with_body(body);
+                response.write(stream)
+            }
         })
     }
 }

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::io::BufReader;
 use std::net::{IpAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -8,7 +7,6 @@ use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use crate::address::Address;
 use crate::id::Id;
-use crate::message::Message;
 use crate::model::Model;
 use crate::name::Name;
 
@@ -92,27 +90,6 @@ pub trait Device: Sized {
         );
 
         TcpListener::bind(address).unwrap()
-    }
-
-    /// Reads an HTTP request from a `TcpStream` and parses it into the request line, headers, and
-    /// body; then responds with a `200 OK` ACK to close the socket.
-    ///
-    /// **Design Decision**: in this codebase, `Message`s are HTTP requests. All communication happens asynchronously via
-    /// "fire and forget" HTTP requests (all responses to all messages are "200 OK"). This _asynchronous message-passing_
-    /// style of communication is the de-facto standard in
-    /// [microservices design](https://docs.aws.amazon.com/whitepapers/latest/microservices-on-aws/asynchronous-messaging-and-event-passing.html).
-    fn ack_and_parse_request(
-        sender_name: &str,
-        sender_address: Address,
-        mut stream: &mut TcpStream,
-    ) -> Result<Message, String> {
-        let request = Message::read(BufReader::new(&mut stream));
-
-        // every HTTP request gets a 200 OK "ack" to close the HTTP socket
-        let response = Message::ack(sender_name, sender_address);
-        response.write(stream);
-
-        request
     }
 
     /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually

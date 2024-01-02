@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::io::{BufRead, Write};
+use std::io::{BufRead, BufReader, Write};
+use std::net::TcpStream;
 
 use crate::address::Address;
 
@@ -97,13 +98,21 @@ impl Message {
         Message::new("HTTP/1.1 501 Not Implemented", HashMap::new(), None)
     }
 
+    pub fn respond_bad_request() -> Message {
+        Message::new("HTTP/1.1 400 Bad Request", HashMap::new(), None)
+    }
+
     /// Writes this `Message` into the provided `tcp_stream`.
     pub fn write(&self, tcp_stream: &mut impl Write) {
         tcp_stream.write_all(self.to_string().as_bytes()).unwrap();
     }
 
+    pub fn read(mut stream: &mut TcpStream) -> Result<Message, String> {
+        Message::read_from_buffer(BufReader::new(&mut stream))
+    }
+
     /// Attempts to read a `Message` from a `BufRead` (usually a `TcpStream`).
-    pub fn read(mut reader: impl BufRead) -> Result<Message, String> {
+    pub fn read_from_buffer(mut reader: impl BufRead) -> Result<Message, String> {
         let mut message = String::new();
         reader
             .read_line(&mut message)
@@ -298,7 +307,7 @@ mod device_message_tests {
         ]
         .join("\r\n");
 
-        let actual = Message::read(serialized.as_bytes()).unwrap();
+        let actual = Message::read_from_buffer(serialized.as_bytes()).unwrap();
 
         assert_eq!(actual, expected)
     }
@@ -318,7 +327,7 @@ mod device_message_tests {
         ]
         .join("\r\n");
 
-        let actual = Message::read(serialized.as_bytes()).unwrap();
+        let actual = Message::read_from_buffer(serialized.as_bytes()).unwrap();
 
         assert_eq!(actual, expected)
     }
@@ -342,7 +351,7 @@ mod device_message_tests {
         ]
         .join("\r\n");
 
-        let actual = Message::read(serialized.as_bytes()).unwrap();
+        let actual = Message::read_from_buffer(serialized.as_bytes()).unwrap();
 
         assert_eq!(actual, expected)
     }

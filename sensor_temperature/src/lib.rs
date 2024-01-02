@@ -4,12 +4,12 @@ use mdns_sd::ServiceInfo;
 
 use datum::kind::Kind;
 use datum::unit::Unit;
+use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Handler};
 use sensor::Sensor;
 
 pub struct TemperatureSensor {
@@ -40,8 +40,17 @@ impl Device for TemperatureSensor {
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
     fn get_handler(&self) -> Handler {
         Box::new(move |stream| {
-            let response = Message::respond_not_implemented();
-            response.write(stream)
+            if let Ok(message) = Message::read(stream) {
+                let body = format!("[Device] ignoring message: {}", message);
+                let response = Message::respond_not_implemented().with_body(body);
+                response.write(stream)
+
+            } else {
+                let body = "unable to read Message from TcpStream";
+                println!("[Device] {}", body);
+                let response = Message::respond_bad_request().with_body(body);
+                response.write(stream)
+            }
         })
     }
 }
