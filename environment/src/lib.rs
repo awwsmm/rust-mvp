@@ -235,7 +235,9 @@ impl Environment {
     pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             let device = Self::new(id, name, Address::new(ip, port));
+
             let mdns = ServiceDaemon::new().unwrap();
+
             device.respond(ip, port, group.as_str(), mdns)
         })
     }

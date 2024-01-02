@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, TcpStream};
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -7,7 +8,7 @@ use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use datum::kind::Kind;
 use datum::unit::Unit;
-use device::{Device, Handler, Targets};
+use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
@@ -15,15 +16,19 @@ use device::name::Name;
 
 /// A Sensor collects data from the Environment.
 pub trait Sensor: Device {
-    fn get_environment(&self) -> Option<ServiceInfo>;
+    fn get_environment(&self) -> &Arc<Mutex<Option<ServiceInfo>>>;
 
-    fn get_controller(&self) -> Option<ServiceInfo>;
+    fn get_controller(&self) -> &Arc<Mutex<Option<ServiceInfo>>>;
+
+    fn get_environment_info(&self) -> Option<ServiceInfo>;
+
+    fn get_controller_info(&self) -> Option<ServiceInfo>;
 
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
     fn default_handler(&self) -> Handler {
         loop {
             // loop until there is an environment to forward requests to
-            match (self.get_environment(), self.get_controller()) {
+            match (self.get_environment_info(), self.get_controller_info()) {
                 (None, _) => {
                     println!(
                         "[Sensor] \"{}\" could not find environment",
@@ -124,19 +129,14 @@ pub trait Sensor: Device {
         std::thread::spawn(move || {
             let device = Self::new(id, name, Address::new(ip, port));
 
-            let targets = device.targets_by_group();
-
             let mdns = ServiceDaemon::new().unwrap();
 
-            for (group, devices) in targets.iter() {
-                device.discover_continually(group, devices, mdns.clone());
-            }
+            device.discover_once("_controller", device.get_controller(), mdns.clone());
+            device.discover_once("_environment", device.get_environment(), mdns.clone());
 
             device.respond(ip, port, group.as_str(), mdns)
         })
     }
-
-    fn targets_by_group(&self) -> HashMap<String, Targets>;
 
     fn new(id: Id, name: Name, address: Address) -> Self;
 }
