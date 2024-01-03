@@ -23,6 +23,7 @@ impl DatumGenerator {
         DatumGenerator { generator, unit }
     }
 
+    #[allow(dead_code)] // FIXME remove ASAP
     pub(crate) fn generate(&mut self) -> Datum {
         let now = Utc::now();
         let generator = &mut self.generator;
@@ -63,6 +64,7 @@ pub mod time_dependent {
 
     use crate::generator::DatumGenerator;
 
+    #[allow(dead_code)] // FIXME remove ASAP
     pub fn f32_linear(slope: f32, noise: f32, unit: Unit) -> DatumGenerator {
         let start = Utc::now().timestamp_millis();
         let mut rng = thread_rng();
@@ -77,6 +79,7 @@ pub mod time_dependent {
         DatumGenerator::new(Box::new(f), unit)
     }
 
+    #[allow(dead_code)] // FIXME remove ASAP
     pub fn i32_linear(slope: i32, noise: i32, unit: Unit) -> DatumGenerator {
         let start = Utc::now().timestamp_millis();
         let mut rng = thread_rng();
@@ -92,6 +95,7 @@ pub mod time_dependent {
     }
 }
 
+#[allow(dead_code)] // FIXME remove ASAP
 pub fn bool_alternating(initial: bool, unit: Unit) -> DatumGenerator {
     let mut latest_value = !initial;
 

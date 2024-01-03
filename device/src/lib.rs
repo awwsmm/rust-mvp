@@ -72,13 +72,6 @@ pub trait Device: Sized {
         mdns.register(my_service).unwrap()
     }
 
-    /// Extracts the `Address` of a `Device` from its `ServiceInfo` found via mDNS.
-    fn extract_address(info: &ServiceInfo) -> Address {
-        let ip = *info.get_addresses().iter().next().unwrap();
-        let port = info.get_port();
-        Address::new(ip, port)
-    }
-
     /// Creates a `TcpListener` and binds it to the specified `ip` and `port`.
     fn bind(&self, address: Address) -> TcpListener {
         let address = address.to_string();
@@ -104,7 +97,14 @@ pub trait Device: Sized {
         }
     }
 
-    /// Extracts the [`Id`](crate::Id) of a `Device` from its `ServiceInfo`.
+    /// Extracts the `Address` of a `Device` from its `ServiceInfo` found via mDNS.
+    fn extract_address(info: &ServiceInfo) -> Address {
+        let ip = *info.get_addresses().iter().next().unwrap();
+        let port = info.get_port();
+        Address::new(ip, port)
+    }
+
+    /// Extracts the [`Id`](Id) of a `Device` from its `ServiceInfo`.
     ///
     /// The `id` property is set when a device is [`register`ed](Self::register) with mDNS.
     fn extract_id(info: &ServiceInfo) -> Option<Id> {
@@ -112,12 +112,20 @@ pub trait Device: Sized {
         id.map(|i| Id::new(i.trim_start_matches("id=")))
     }
 
-    /// Extracts the [`Model`](crate::Model) of a `Device` from its `ServiceInfo`.
+    /// Extracts the [`Model`](Model) of a `Device` from its `ServiceInfo`.
     ///
     /// The `model` property is set when a device is [`register`ed](Self::register) with mDNS.
     fn extract_model(info: &ServiceInfo) -> Option<Result<Model, String>> {
         let model = info.get_property("model").map(|p| p.to_string());
         model.map(|m| Model::parse(m.trim_start_matches("model=")))
+    }
+
+    /// Extracts the [`Name`](Name) of a `Device` from its `ServiceInfo`.
+    ///
+    /// The `name` property is set when a device is [`register`ed](Self::register) with mDNS.
+    fn extract_name(info: &ServiceInfo) -> Option<Name> {
+        let name = info.get_property("name").map(|p| p.to_string());
+        name.map(|i| Name::new(i.trim_start_matches("name=")))
     }
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
@@ -128,9 +136,7 @@ pub trait Device: Sized {
         mdns: ServiceDaemon,
     ) -> JoinHandle<()> {
         let group = String::from(group);
-
-        // clone the Arc<Mutex<>> around the devices so we can update them in multiple threads
-        let devices_mutex = Arc::clone(devices);
+        let mutex = Arc::clone(devices);
         let self_name = self.get_name().to_string();
 
         std::thread::spawn(move || {
@@ -140,11 +146,11 @@ pub trait Device: Sized {
             while let Ok(event) = receiver.recv() {
                 if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
                     let id = Self::extract_id(&info);
-                    let devices_lock = devices_mutex.lock();
+                    let devices_lock = mutex.lock();
                     let mut devices_guard = devices_lock.unwrap();
 
                     println!(
-                        "[Device::discover] \"{}\" discovered \"{}\"",
+                        "[Device::discover_continually] \"{}\" discovered \"{}\"",
                         self_name,
                         info.get_property("name")
                             .map(|p| p.val_str())
@@ -157,6 +163,9 @@ pub trait Device: Sized {
         })
     }
 
+    /// Creates a new thread to discover a single `Device` on the network in the specified `group`.
+    ///
+    /// Once that single `Device` is discovered, the thread is completed.
     fn discover_once(
         &self,
         group: &str,
@@ -164,7 +173,6 @@ pub trait Device: Sized {
         mdns: ServiceDaemon,
     ) -> JoinHandle<()> {
         let group = String::from(group);
-
         let mutex = Arc::clone(devices);
         let self_name = self.get_name().to_string();
 
@@ -178,7 +186,7 @@ pub trait Device: Sized {
                     let mut device = devices_lock.unwrap();
 
                     println!(
-                        "[Device::discover] \"{}\" discovered \"{}\"",
+                        "[Device::discover_once] \"{}\" discovered \"{}\"",
                         self_name,
                         info.get_property("name")
                             .map(|p| p.val_str())

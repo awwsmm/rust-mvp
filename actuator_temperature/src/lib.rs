@@ -3,12 +3,12 @@ use std::sync::{Arc, Mutex};
 use mdns_sd::ServiceInfo;
 
 use actuator::Actuator;
-use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
+use device::{Device, Handler};
 
 pub mod command;
 
@@ -43,7 +43,6 @@ impl Device for TemperatureActuator {
                 let body = format!("[Device] ignoring message: {}", message);
                 let response = Message::respond_not_implemented().with_body(body);
                 response.write(stream)
-
             } else {
                 let body = "unable to read Message from TcpStream";
                 println!("[Device] {}", body);

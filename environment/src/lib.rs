@@ -4,17 +4,17 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
 use mdns_sd::ServiceDaemon;
-use rand::{Rng, thread_rng};
+use rand::{thread_rng, Rng};
 
-use datum::Datum;
 use datum::kind::Kind;
 use datum::unit::Unit;
-use device::{Device, Handler};
+use datum::Datum;
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
+use device::{Device, Handler};
 
 use crate::generator::DatumGenerator;
 
@@ -26,6 +26,7 @@ mod generator;
 pub struct Environment {
     name: Name,
     id: Id,
+    #[allow(dead_code)] // FIXME remove ASAP
     attributes: Arc<Mutex<HashMap<Id, DatumGenerator>>>,
     address: Address,
 }
@@ -54,7 +55,6 @@ impl Device for Environment {
                 let body = format!("[Device] ignoring message: {}", message);
                 let response = Message::respond_not_implemented().with_body(body);
                 response.write(stream)
-
             } else {
                 let body = "unable to read Message from TcpStream";
                 println!("[Device] {}", body);
@@ -75,6 +75,7 @@ impl Environment {
         }
     }
 
+    #[allow(dead_code)] // FIXME remove ASAP
     fn get(
         attributes: Arc<Mutex<HashMap<Id, DatumGenerator>>>,
         id: &Id,

@@ -9,6 +9,7 @@ use crate::assessor::Assessor;
 pub struct State {
     pub(crate) sensors: Targets,
     pub(crate) actuators: Targets,
+    #[allow(dead_code)] // FIXME remove ASAP
     pub(crate) assessors: Arc<Mutex<HashMap<Id, Assessor>>>,
 }
 
