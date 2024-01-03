@@ -37,6 +37,8 @@ pub trait Sensor: Device {
         std::thread::spawn(move || {
             let device = Self::new(id, name, Address::new(ip, port));
 
+            // Anything which depends on device must be cloned outside of the || lambda below.
+            // We cannot refer to `device` inside of this lambda.
             let device_name = device.get_name().clone();
             let device_id = device.get_id().clone();
             let device_kind = device.get_datum_value_type();

@@ -52,6 +52,8 @@ impl Device for Controller {
 
     // TODO Controller should respond to HTTP requests from Sensors.
     fn get_handler(&self) -> Handler {
+        // Anything which depends on self must be cloned outside of the |stream| lambda.
+        // We cannot refer to `self` inside of this lambda.
         let self_name = self.get_name().clone();
 
         Box::new(move |stream| {

@@ -44,11 +44,27 @@ impl Device for TemperatureSensor {
     fn get_handler(&self) -> Handler {
         let self_name = self.get_name().clone();
 
+        // Anything which depends on self must be cloned outside of the |stream| lambda.
+        // We cannot refer to `self` inside of this lambda.
+        let self_data = Arc::clone(self.get_data());
+
         Box::new(move |stream| {
             if let Ok(message) = Message::read(stream) {
-                let body = format!("[Device] ignoring message: {}", message);
-                let response = Message::respond_not_implemented().with_body(body);
-                response.write(stream)
+                if message.start_line == "GET /data HTTP/1.1" {
+                    // get all of the data in this Sensor's buffer
+                    //     ex: curl 10.12.50.26:5454/data
+
+                    let data = self_data.lock().unwrap();
+                    let data: Vec<String> = data.iter().map(|d| d.to_string()).collect();
+                    let data = data.join("\r\n");
+
+                    let response = Message::respond_ok().with_body(data);
+                    response.write(stream)
+                } else {
+                    // TODO implement other endpoints
+                    let msg = format!("cannot parse request: {}", message.start_line);
+                    Self::handler_failure(self_name.clone(), stream, msg.as_str())
+                }
             } else {
                 Self::handler_failure(
                     self_name.clone(),

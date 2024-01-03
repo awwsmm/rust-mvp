@@ -51,7 +51,6 @@ impl Device for Environment {
     fn get_handler(&self) -> Handler {
         // Anything which depends on self must be cloned outside of the |stream| lambda.
         // We cannot refer to `self` inside of this lambda.
-
         let self_name = self.name.clone();
         let attributes = Arc::clone(&self.attributes);
 
@@ -97,11 +96,9 @@ impl Device for Environment {
                                                 &id,
                                                 kind,
                                                 unit,
-                                            )
-                                            .to_string();
-                                            println!("[Environment] generated Datum to send back to sensor: {}", datum);
-                                            let response = Message::respond_ok().with_body(datum);
-                                            response.write(stream)
+                                            );
+
+                                            success(stream, datum);
                                         }
                                         _ => {
                                             let msg = "could not parse required headers";

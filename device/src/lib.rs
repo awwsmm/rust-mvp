@@ -145,6 +145,9 @@ pub trait Device: Sized {
     ) -> JoinHandle<()> {
         let group = String::from(group);
         let mutex = Arc::clone(devices);
+
+        // Anything which depends on self must be cloned outside of the || lambda.
+        // We cannot refer to `self` inside of this lambda.
         let self_name = self.get_name().to_string();
 
         std::thread::spawn(move || {
@@ -182,6 +185,9 @@ pub trait Device: Sized {
     ) -> JoinHandle<()> {
         let group = String::from(group);
         let mutex = Arc::clone(devices);
+
+        // Anything which depends on self must be cloned outside of the || lambda.
+        // We cannot refer to `self` inside of this lambda.
         let self_name = self.get_name().to_string();
 
         std::thread::spawn(move || {

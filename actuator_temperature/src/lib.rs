@@ -38,6 +38,8 @@ impl Device for TemperatureActuator {
 
     /// By default, an `Actuator` forwards all incoming requests to the `Environment`.
     fn get_handler(&self) -> Handler {
+        // Anything which depends on self must be cloned outside of the |stream| lambda.
+        // We cannot refer to `self` inside of this lambda.
         let self_name = self.get_name().clone();
 
         Box::new(move |stream| {
