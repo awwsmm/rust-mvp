@@ -5,7 +5,6 @@ use uuid::Uuid;
 use actuator::Actuator;
 use actuator_temperature::TemperatureActuator;
 use controller::Controller;
-use device::address::Address;
 use device::id::Id;
 use device::name::Name;
 use environment::Environment;
@@ -67,14 +66,16 @@ fn main() {
         String::from("_environment"),
     );
 
-    // we continually tell the Controller to poll the sensors
-    loop {
-        std::thread::sleep(Duration::from_secs(1));
+    // // we continually tell the Controller to poll the sensors
+    // loop {
+    //     std::thread::sleep(Duration::from_secs(1));
+    //
+    //     Controller::ping_sensor(
+    //         "Controller", // FIXME this must be "Controller" or this does not work
+    //         Address::new(ip, environment_port),
+    //         Address::new(ip, sensor_port),
+    //     );
+    // }
 
-        Controller::ping_sensor(
-            "Controller", // FIXME this must be "Controller" or this does not work
-            Address::new(ip, environment_port),
-            Address::new(ip, sensor_port),
-        );
-    }
+    std::thread::sleep(Duration::MAX)
 }

@@ -104,6 +104,10 @@ impl Controller {
 
     pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
+            // --------------------------------------------------------------------------------
+            // create Device and discover required Message targets
+            // --------------------------------------------------------------------------------
+
             let device = Self::new(id, name, Address::new(ip, port));
 
             let mut targets = HashMap::new();
@@ -115,6 +119,10 @@ impl Controller {
             for (group, devices) in targets.iter() {
                 device.discover_continually(group, devices, mdns.clone());
             }
+
+            // --------------------------------------------------------------------------------
+            // respond to incoming requests
+            // --------------------------------------------------------------------------------
 
             device.respond(ip, port, group.as_str(), mdns)
         })

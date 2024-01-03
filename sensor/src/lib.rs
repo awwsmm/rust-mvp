@@ -35,7 +35,21 @@ pub trait Sensor: Device {
 
     fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
+            // --------------------------------------------------------------------------------
+            // create Device and discover required Message targets
+            // --------------------------------------------------------------------------------
             let device = Self::new(id, name, Address::new(ip, port));
+
+            let mdns = ServiceDaemon::new().unwrap();
+
+            device.discover_once("_controller", device.get_controller(), mdns.clone());
+            device.discover_once("_environment", device.get_environment(), mdns.clone());
+
+            // --------------------------------------------------------------------------------
+            // ping the Environment at regular intervals to get latest data
+            // --------------------------------------------------------------------------------
+
+            let sleep_duration = Duration::from_secs(15);
 
             // Anything which depends on device must be cloned outside of the || lambda below.
             // We cannot refer to `device` inside of this lambda.
@@ -44,15 +58,9 @@ pub trait Sensor: Device {
             let device_kind = device.get_datum_value_type();
             let device_unit = device.get_datum_unit();
 
-            let mdns = ServiceDaemon::new().unwrap();
-
-            device.discover_once("_controller", device.get_controller(), mdns.clone());
-            device.discover_once("_environment", device.get_environment(), mdns.clone());
-
             let data = Arc::clone(device.get_data());
             let environment = Arc::clone(device.get_environment());
 
-            // ping Environment at regular intervals to get the latest Datum
             std::thread::spawn(move || {
                 let url = format!("/datum/{}", device_id);
 
@@ -95,9 +103,13 @@ pub trait Sensor: Device {
                         }
                     }
 
-                    std::thread::sleep(Duration::from_secs(1));
+                    std::thread::sleep(sleep_duration);
                 }
             });
+
+            // --------------------------------------------------------------------------------
+            // respond to incoming requests
+            // --------------------------------------------------------------------------------
 
             device.respond(ip, port, group.as_str(), mdns)
         })

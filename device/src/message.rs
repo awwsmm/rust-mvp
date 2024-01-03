@@ -116,6 +116,10 @@ impl Message {
         Message::new("HTTP/1.1 400 Bad Request", HashMap::new(), None)
     }
 
+    pub fn respond_not_found() -> Message {
+        Message::new("HTTP/1.1 404 Not Found", HashMap::new(), None)
+    }
+
     /// Writes this `Message` into the provided `tcp_stream`.
     pub fn write(&self, tcp_stream: &mut impl Write) {
         tcp_stream.write_all(self.to_string().as_bytes()).unwrap();

@@ -60,6 +60,19 @@ impl Device for TemperatureSensor {
 
                     let response = Message::respond_ok().with_body(data);
                     response.write(stream)
+                } else if message.start_line == "GET /datum HTTP/1.1" {
+                    // get the latest Datum from this Sensor's buffer
+                    //     ex: curl 10.12.50.26:5454/datum
+
+                    let data = self_data.lock().unwrap();
+                    let datum = data.iter().next().map(|d| d.to_string());
+
+                    let response = match datum {
+                        None => Message::respond_not_found().with_body("no data"),
+                        Some(datum) => Message::respond_ok().with_body(datum),
+                    };
+
+                    response.write(stream)
                 } else {
                     // TODO implement other endpoints
                     let msg = format!("cannot parse request: {}", message.start_line);
