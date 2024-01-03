@@ -20,12 +20,6 @@ pub mod name;
 /// A `Handler` describes how a `Device` should handle incoming HTTP requests.
 pub type Handler = Box<dyn Fn(&mut TcpStream)>;
 
-/// A _target_ is a `Device` to which _this_ `Device` _sends_ `Message`s.
-///
-/// A `Device` can be uniquely identified by its `Id`, but to send it a message,
-/// we also need its `Address`.
-pub type Targets = Arc<Mutex<HashMap<Id, ServiceInfo>>>;
-
 /// A `Device` exists on the network and is discoverable via mDNS.
 pub trait Device: Sized {
     /// Returns the user-friendly name of this `Device`.
@@ -123,7 +117,7 @@ pub trait Device: Sized {
     }
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
-    fn discover_continually(&self, group: &str, devices: &Targets, mdns: ServiceDaemon) -> JoinHandle<()> {
+    fn discover_continually(&self, group: &str, devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>, mdns: ServiceDaemon) -> JoinHandle<()> {
         let group = String::from(group);
         let mutex = Arc::clone(devices);
 

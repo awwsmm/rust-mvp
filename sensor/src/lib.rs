@@ -13,7 +13,7 @@ use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::name::Name;
-use device::Device;
+use device::{Device, Handler};
 
 /// A Sensor collects data from the Environment.
 pub trait Sensor: Device {
@@ -23,15 +23,54 @@ pub trait Sensor: Device {
 
     fn get_controller(&self) -> &Arc<Mutex<Option<ServiceInfo>>>;
 
-    fn get_environment_info(&self) -> Option<ServiceInfo>;
-
-    fn get_controller_info(&self) -> Option<ServiceInfo>;
-
     fn get_datum_value_type(&self) -> Kind;
 
     fn get_datum_unit(&self) -> Unit;
 
     fn get_data(&self) -> &Arc<Mutex<VecDeque<Datum>>>;
+
+    /// By default, a `Sensor` responds to any request with the latest `Datum`.
+    fn default_handler(&self) -> Handler {
+        let self_name = self.get_name().clone();
+
+        // Anything which depends on self must be cloned outside of the |stream| lambda.
+        // We cannot refer to `self` inside of this lambda.
+        let self_data = Arc::clone(self.get_data());
+
+        Box::new(move |stream| {
+            if let Ok(message) = Message::read(stream) {
+                if message.start_line == "GET /data HTTP/1.1" {
+                    // get all of the data in this Sensor's buffer
+                    //     ex: curl 10.12.50.26:5454/data
+
+                    let data = self_data.lock().unwrap();
+                    let data: Vec<String> = data.iter().map(|d| d.to_string()).collect();
+                    let data = data.join("\r\n");
+
+                    let response = Message::respond_ok().with_body(data);
+                    response.write(stream)
+                } else if message.start_line == "GET /datum HTTP/1.1" {
+                    // get the latest Datum from this Sensor's buffer
+                    //     ex: curl 10.12.50.26:5454/datum
+
+                    let data = self_data.lock().unwrap();
+                    let datum = data.iter().next().map(|d| d.to_string());
+
+                    let response = match datum {
+                        None => Message::respond_not_found().with_body("no data"),
+                        Some(datum) => Message::respond_ok().with_body(datum),
+                    };
+
+                    response.write(stream)
+                } else {
+                    let msg = format!("cannot parse request: {}", message.start_line);
+                    Self::handler_failure(self_name.clone(), stream, msg.as_str())
+                }
+            } else {
+                Self::handler_failure(self_name.clone(), stream, "unable to read Message from stream")
+            }
+        })
+    }
 
     fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {

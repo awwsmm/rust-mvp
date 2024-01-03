@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use mdns_sd::ServiceInfo;
+
 use device::id::Id;
-use device::Targets;
 
 use crate::assessor::Assessor;
 
 pub struct State {
-    pub(crate) sensors: Targets,
-    pub(crate) actuators: Targets,
-    #[allow(dead_code)] // FIXME remove ASAP
+    pub(crate) sensors: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    pub(crate) actuators: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
     pub(crate) assessors: Arc<Mutex<HashMap<Id, Assessor>>>,
 }
 
