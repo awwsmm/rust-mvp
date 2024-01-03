@@ -78,6 +78,64 @@ impl Device for Controller {
 
                     let response = Message::respond_ok().with_body(body);
                     response.write(stream)
+                } else if message.start_line == "GET /ui HTTP/1.1" {
+                    // let data = self_data.lock().unwrap();
+                    // let sensors: Vec<String> = data
+                    //     .iter()
+                    //     .map(|(id, buffer)| {
+                    //         let data: Vec<String> = buffer.iter().map(|d| d.to_string()).collect();
+                    //         let data = data.join(",");
+                    //         format!(r#"{{"id":"{}","data":[{}]}}"#, id, data)
+                    //     })
+                    //     .collect();
+                    // let body = format!("[{}]", sensors.join(","));
+                    //
+                    // let html = format!("<h1>Data</h1><p>{}</p>", body);
+
+                    let html = r##"
+<html>
+<head>
+<script>
+function getData(){
+   var burl = "https://api.binance.com"
+   var query = "/api/v3/depth"
+   query += "?symbol=BTCUSDT&limit=5" //price
+   var url = burl + query;
+
+   var myrequest = new XMLHttpRequest();
+   myrequest.open("GET", url, true);
+
+   myrequest.onload = (function() {
+      if (this.status == 200) {
+         var dizi = new Array();
+         dizi = JSON.parse(myrequest.responseText);
+         var price = Number(dizi.asks[0][0]);
+         console.log(typeof price);
+
+         const elem = document.getElementById("pet");
+         elem.innerHTML = price;
+
+         setTimeout(getData(), 1000); //1000 means 5 seconds
+      }
+   });
+   myrequest.send();
+}
+getData();
+</script>
+<body>
+<div>
+  <p id="pet">Lorem, ipsum dolor.</p>
+</div>
+</body>
+</html>
+                    "##;
+
+                    let mut headers = HashMap::new();
+                    headers.insert("Content-Type", "text/html; charset=utf-8");
+
+                    let response = Message::respond_ok().with_body(html).with_headers(headers);
+
+                    response.write(stream)
                 } else {
                     let msg = format!("cannot parse request: {}", message.start_line);
                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
