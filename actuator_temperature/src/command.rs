@@ -10,25 +10,34 @@ impl actuator::Command for Command {}
 
 impl Display for Command {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Command::CoolTo(temp) => write!(f, "CoolTo:{}", temp),
-            Command::HeatTo(temp) => write!(f, "HeatTo:{}", temp),
-        }
+        let (name, value) = match self {
+            Command::CoolTo(temp) => ("CoolTo", temp),
+            Command::HeatTo(temp) => ("HeatTo", temp),
+        };
+
+        write!(f, r#"{{"name":"{}","value":"{}"}}"#, name, value)
     }
 }
 
 impl Command {
-    pub fn parse(string: &str) -> Result<Command, String> {
-        let mut pieces = string.split(':');
+    pub fn parse<S: Into<String>>(s: S) -> Result<Command, String> {
+        let original = s.into();
+        let mut string = original.clone();
+        string.retain(|c| !c.is_whitespace());
+        let string = string.trim_start_matches('{').trim_end_matches('}');
+        let mut pieces = string.split(',');
 
-        match (pieces.next(), pieces.next()) {
-            (Some("CoolTo"), Some(temp)) => match temp.parse() {
+        let name = pieces.next().unwrap().trim_start_matches(r#""name":""#).trim_end_matches('"');
+        let value = pieces.next().unwrap().trim_start_matches(r#""value":""#).trim_end_matches('"');
+
+        match (name, value) {
+            ("CoolTo", value) => match value.parse() {
                 Ok(temp) => Ok(Command::CoolTo(temp)),
-                Err(_) => Err(format!("cannot parse {} as f32", temp)),
+                Err(_) => Err(format!("cannot parse {} as f32", value)),
             },
-            (Some("HeatTo"), Some(temp)) => match temp.parse() {
+            ("HeatTo", value) => match value.parse() {
                 Ok(temp) => Ok(Command::HeatTo(temp)),
-                Err(_) => Err(format!("cannot parse {} as f32", temp)),
+                Err(_) => Err(format!("cannot parse {} as f32", value)),
             },
             _ => Err(format!("cannot parse {} as Command", string)),
         }

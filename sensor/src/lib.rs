@@ -115,7 +115,9 @@ pub trait Sensor: Device {
                         let environment = environment.lock().unwrap();
 
                         match environment.as_ref().map(Self::extract_address) {
-                            None => {}
+                            None => {
+                                println!("[Sensor] {} could not find environment", device_name);
+                            }
                             Some(address) => {
                                 let mut stream = TcpStream::connect(address.to_string()).unwrap();
 
