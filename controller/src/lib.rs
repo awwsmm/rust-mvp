@@ -58,10 +58,7 @@ impl Device for Controller {
                 let response = Message::respond_not_implemented().with_body(body);
                 response.write(stream)
             } else {
-                let body = "unable to read Message from TcpStream";
-                println!("[Device] {}", body);
-                let response = Message::respond_bad_request().with_body(body);
-                response.write(stream)
+                Self::handler_failure(stream)
             }
         })
     }

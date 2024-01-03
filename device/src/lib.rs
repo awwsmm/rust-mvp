@@ -7,6 +7,7 @@ use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use crate::address::Address;
 use crate::id::Id;
+use crate::message::Message;
 use crate::model::Model;
 use crate::name::Name;
 
@@ -41,6 +42,14 @@ pub trait Device: Sized {
 
     /// Returns the helper which defines how to handle HTTP requests.
     fn get_handler(&self) -> Handler;
+
+    /// Provides a standard way to deal with failures in `get_handler()`.
+    fn handler_failure(stream: &mut TcpStream) {
+        let body = "unable to read Message from TcpStream";
+        println!("[Device] {}", body);
+        let response = Message::respond_bad_request().with_body(body);
+        response.write(stream)
+    }
 
     /// Registers this `Device` with mDNS in the specified group.
     fn register(&self, ip: IpAddr, port: u16, group: &str, mdns: ServiceDaemon) {
