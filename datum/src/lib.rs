@@ -70,10 +70,7 @@ impl Datum {
             (Some(value), Some(unit), Some(timestamp)) => match (
                 Value::parse(value.trim_start_matches(r#""value":""#).trim_end_matches('"')),
                 Unit::parse(unit.trim_start_matches(r#""unit":""#).trim_end_matches('"')),
-                timestamp
-                    .trim_start_matches(r#""timestamp":""#)
-                    .trim_end_matches('"')
-                    .parse::<DateTime<Utc>>(),
+                timestamp.trim_start_matches(r#""timestamp":""#).trim_end_matches('"').parse::<DateTime<Utc>>(),
             ) {
                 (Ok(value), Ok(unit), Ok(timestamp)) => Ok(Datum::new(value, unit, timestamp)),
                 (Err(msg), _, _) => Err(msg),

@@ -12,7 +12,7 @@ use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Handler, Targets};
+use device::{Device, Handler};
 
 use crate::assessor::DEFAULT_ASSESSOR;
 use crate::state::State;
@@ -117,11 +117,6 @@ impl Controller {
         ping.write(&mut tcp_stream);
     }
 
-    /// Returns all of the `Sensor`s of which the `Controller` is aware.
-    pub fn get_sensors(&self) -> &Targets {
-        &self.state.sensors
-    }
-
     pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             // --------------------------------------------------------------------------------
@@ -146,8 +141,10 @@ impl Controller {
             let sleep_duration = Duration::from_secs(1);
             let buffer_size = 10;
 
-            let sensors = Arc::clone(device.get_sensors());
+            let sensors = Arc::clone(&device.state.sensors);
             let data = Arc::clone(&device.data);
+            let assessors = Arc::clone(&device.state.assessors);
+            let actuators = Arc::clone(&device.state.actuators);
 
             std::thread::spawn(move || {
                 let query = Message::request("GET", "/datum");
@@ -156,11 +153,14 @@ impl Controller {
                     {
                         let sensors = sensors.lock().unwrap();
                         let mut data = data.lock().unwrap();
+                        let assessors = assessors.lock().unwrap();
+                        let actuators = actuators.lock().unwrap();
 
                         for (id, info) in sensors.iter() {
                             let address = Self::extract_address(info);
                             let mut stream = TcpStream::connect(address.to_string()).unwrap();
                             let sensor_name = Self::extract_name(info).unwrap();
+                            let sensor_model = Self::extract_model(info).unwrap().unwrap();
 
                             println!("[Controller] querying {} for a Datum", sensor_name);
                             query.write(&mut stream);
@@ -180,13 +180,46 @@ impl Controller {
                                         buffer.pop_back();
                                     }
                                     buffer.push_front(datum.clone());
+
+                                    // assess new data point and (maybe) send Command to Actuator
+                                    if let Some(assessor) = assessors.get(id).or_else(|| DEFAULT_ASSESSOR.get(sensor_model.to_string().as_str())) {
+                                        match (assessor.assess)(&datum) {
+                                            None => println!("[Controller] assessed Datum, but will not produce Command for Actuator"),
+                                            Some(command) => {
+                                                println!("[Controller] attempting to send Command to Actuator: {}", command);
+
+                                                match actuators.get(id) {
+                                                    None => println!("[Controller] cannot find Actuator with id: {}", id),
+                                                    Some(actuator) => {
+                                                        let actuator = <Self as Device>::extract_address(actuator).to_string();
+                                                        println!("[Sensor] connecting to Actuator @ {}", actuator);
+
+                                                        // TODO actually send command to Actuator
+
+                                                        // let mut stream = TcpStream::connect(actuator).unwrap();
+                                                        //
+                                                        // let command = Message::ping(
+                                                        //     sender_name.as_str(),
+                                                        //     sender_address
+                                                        // ).with_body(
+                                                        //     command.to_string()
+                                                        // );
+                                                        //
+                                                        // println!("[Controller] sending Command to Actuator\nvvvvvvvvvv\n{}\n^^^^^^^^^^", command);
+                                                        //
+                                                        // command.write(&mut stream);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        println!("[Controller] assessor does not contain id: {}\nknown ids: {:?}", id, assessors.keys())
+                                    }
                                 }
                                 Err(msg) => {
                                     println!("[Controller] received error: {}", msg)
                                 }
                             }
-
-                            // TODO process data and send Commands to Actuators
                         }
                     }
 

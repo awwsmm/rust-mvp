@@ -57,10 +57,7 @@ pub trait Device: Sized {
         let name = format!("{}.{}", self.get_id(), Self::get_model());
         let domain = format!("{}._tcp.local.", group);
 
-        println!(
-            "[Device::register] registering new Device \"{}\" via mDNS at {}.{}",
-            label, name, domain
-        );
+        println!("[Device::register] registering new Device \"{}\" via mDNS at {}.{}", label, name, domain);
 
         let mut properties = HashMap::new();
         properties.insert("id".to_string(), self.get_id().to_string());
@@ -159,12 +156,7 @@ pub trait Device: Sized {
     /// Creates a new thread to discover a single `Device` on the network in the specified `group`.
     ///
     /// Once that single `Device` is discovered, the thread is completed.
-    fn discover_once(
-        &self,
-        group: &str,
-        devices: &Arc<Mutex<Option<ServiceInfo>>>,
-        mdns: ServiceDaemon,
-    ) -> JoinHandle<()> {
+    fn discover_once(&self, group: &str, devices: &Arc<Mutex<Option<ServiceInfo>>>, mdns: ServiceDaemon) -> JoinHandle<()> {
         let group = String::from(group);
         let mutex = Arc::clone(devices);
 

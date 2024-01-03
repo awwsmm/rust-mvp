@@ -39,11 +39,7 @@ impl Display for Message {
         // headers are always followed by a blank line, i.e. \r\n\r\n
         let headers = format!("{}\r\n", headers);
 
-        let body = &self
-            .body
-            .as_ref()
-            .map(|b| format!("\r\n{}\r\n", b))
-            .unwrap_or(String::from(""));
+        let body = &self.body.as_ref().map(|b| format!("\r\n{}\r\n", b)).unwrap_or(String::from(""));
         write!(f, "{}\r\n{}{}\r\n", self.start_line.trim(), headers, body)
     }
 }
@@ -131,9 +127,7 @@ impl Message {
     /// Attempts to read a `Message` from a `BufRead` (usually a `TcpStream`).
     pub fn read_from_buffer(mut reader: impl BufRead) -> Result<Message, String> {
         let mut message = String::new();
-        reader
-            .read_line(&mut message)
-            .map_err(|_| String::from("cannot read message"))?;
+        reader.read_line(&mut message).map_err(|_| String::from("cannot read message"))?;
 
         let mut headers: HashMap<String, String> = HashMap::new();
 

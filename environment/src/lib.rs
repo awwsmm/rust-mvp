@@ -65,10 +65,7 @@ impl Device for Environment {
                     //
                     // In case (1), all we need is the ID. In case (2), we also need to know the kind of data to generate.
 
-                    let id = message
-                        .start_line
-                        .trim_start_matches("GET /datum/")
-                        .trim_end_matches(" HTTP/1.1");
+                    let id = message.start_line.trim_start_matches("GET /datum/").trim_end_matches(" HTTP/1.1");
                     let id = Id::new(id);
 
                     let mut attributes = attributes.lock().unwrap();
@@ -97,7 +94,10 @@ impl Device for Environment {
                                     }
                                 },
                                 _ => {
-                                    let msg = format!("unknown Sensor ID '{}'. To register a new sensor, you must include 'kind' and 'unit' headers in your request", id);
+                                    let msg = format!(
+                                        "unknown Sensor ID '{}'. To register a new sensor, you must include 'kind' and 'unit' headers in your request",
+                                        id
+                                    );
                                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
                                 }
                             }
@@ -130,12 +130,7 @@ impl Environment {
         }
     }
 
-    fn register_new(
-        attributes: &mut MutexGuard<HashMap<Id, DatumGenerator>>,
-        id: &Id,
-        kind: Kind,
-        unit: Unit,
-    ) -> Datum {
+    fn register_new(attributes: &mut MutexGuard<HashMap<Id, DatumGenerator>>, id: &Id, kind: Kind, unit: Unit) -> Datum {
         match attributes.get_mut(id) {
             Some(generator) => generator.generate(),
             None => {

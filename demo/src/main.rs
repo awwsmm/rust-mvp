@@ -24,34 +24,16 @@ fn main() {
 
     // here is the Sensor
     let sensor_port = 8787;
-    TemperatureSensor::start(
-        ip,
-        sensor_port,
-        id.clone(),
-        Name::new("My Thermo-5000 Sensor"),
-        "_sensor".into(),
-    );
+    TemperatureSensor::start(ip, sensor_port, id.clone(), Name::new("My Thermo-5000 Sensor"), "_sensor".into());
 
     // here is the Actuator
-    TemperatureActuator::start(
-        ip,
-        9898,
-        id.clone(),
-        Name::new("My Thermo-5000 Actuator"),
-        "_actuator".into(),
-    );
+    TemperatureActuator::start(ip, 9898, id.clone(), Name::new("My Thermo-5000 Actuator"), "_actuator".into());
 
     // --------------------------------------------------------------------------------
     // spin up the controller
     // --------------------------------------------------------------------------------
 
-    Controller::start(
-        ip,
-        6565,
-        Id::new("controller"),
-        Name::new("Controller"),
-        String::from("_controller"),
-    );
+    Controller::start(ip, 6565, Id::new("controller"), Name::new("Controller"), String::from("_controller"));
 
     // --------------------------------------------------------------------------------
     // spin up the controller
