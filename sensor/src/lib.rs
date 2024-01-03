@@ -49,7 +49,8 @@ pub trait Sensor: Device {
             // ping the Environment at regular intervals to get latest data
             // --------------------------------------------------------------------------------
 
-            let sleep_duration = Duration::from_secs(15);
+            let sleep_duration = Duration::from_secs(1);
+            let buffer_size = 10;
 
             // Anything which depends on device must be cloned outside of the || lambda below.
             // We cannot refer to `device` inside of this lambda.
@@ -95,7 +96,7 @@ pub trait Sensor: Device {
                                 // enforce buffer length, then push, then process
                                 // .lock() must go in an inner scope so it is _unlocked_ while are thread::sleep()-ing, below
                                 let mut data = data.lock().unwrap();
-                                if data.len() == 10 {
+                                if data.len() == buffer_size {
                                     data.pop_back();
                                 }
                                 data.push_front(datum.clone());

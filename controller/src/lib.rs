@@ -1,10 +1,12 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::net::{IpAddr, TcpStream};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
+use std::time::Duration;
 
 use mdns_sd::ServiceDaemon;
 
+use datum::Datum;
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
@@ -31,6 +33,7 @@ pub struct Controller {
     id: Id,
     state: State,
     address: Address,
+    data: Arc<Mutex<HashMap<Id, VecDeque<Datum>>>>,
 }
 
 impl Device for Controller {
@@ -79,6 +82,7 @@ impl Controller {
             id,
             state: State::new(),
             address,
+            data: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -119,6 +123,57 @@ impl Controller {
             for (group, devices) in targets.iter() {
                 device.discover_continually(group, devices, mdns.clone());
             }
+            // --------------------------------------------------------------------------------
+            // ping the Sensors at regular intervals to get latest data
+            // --------------------------------------------------------------------------------
+
+            let sleep_duration = Duration::from_secs(1);
+            let buffer_size = 10;
+
+            let sensors = Arc::clone(device.get_sensors());
+            let data = Arc::clone(&device.data);
+
+            std::thread::spawn(move || {
+                let query = Message::request("GET", "/datum");
+
+                loop {
+                    {
+                        let sensors = sensors.lock().unwrap();
+                        let mut data = data.lock().unwrap();
+
+                        for (id, info) in sensors.iter() {
+                            let address = Self::extract_address(info);
+                            let mut stream = TcpStream::connect(address.to_string()).unwrap();
+                            let sensor_name = Self::extract_name(info).unwrap();
+
+                            println!("[Controller] querying {} for a Datum", sensor_name);
+                            query.write(&mut stream);
+                            let message = Message::read(&mut stream).unwrap();
+                            let datum = Datum::parse(message.body.unwrap()).unwrap();
+
+                            println!(
+                                "[Controller] received a Datum from {}: {}",
+                                sensor_name, datum
+                            );
+
+                            if !data.contains_key(id) {
+                                data.insert(id.clone(), VecDeque::new());
+                            }
+                            let buffer: &mut VecDeque<Datum> = data.get_mut(id).unwrap();
+
+                            // enforce buffer length, then save to buffer
+                            if buffer.len() == buffer_size {
+                                buffer.pop_back();
+                            }
+                            buffer.push_front(datum.clone());
+
+                            // TODO process data and send Commands to Actuators
+                        }
+                    }
+
+                    std::thread::sleep(sleep_duration);
+                }
+            });
 
             // --------------------------------------------------------------------------------
             // respond to incoming requests
