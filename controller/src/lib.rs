@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use mdns_sd::ServiceDaemon;
+use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use datum::Datum;
 use device::address::Address;
@@ -14,11 +14,9 @@ use device::model::Model;
 use device::name::Name;
 use device::{Device, Handler};
 
-use crate::assessor::DEFAULT_ASSESSOR;
-use crate::state::State;
+use crate::assessor::{Assessor, DEFAULT_ASSESSOR};
 
 mod assessor;
-mod state;
 
 /// The Controller queries the `Sensor`s for `Datum`s and sends commands to the `Actuator`s.
 ///
@@ -31,7 +29,9 @@ mod state;
 pub struct Controller {
     name: Name,
     id: Id,
-    state: State,
+    sensors: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    actuators: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
+    assessors: Arc<Mutex<HashMap<Id, Assessor>>>,
     address: Address,
     data: Arc<Mutex<HashMap<Id, VecDeque<Datum>>>>,
 }
@@ -96,7 +96,9 @@ impl Controller {
         Self {
             name,
             id,
-            state: State::new(),
+            sensors: Arc::new(Mutex::new(HashMap::new())),
+            actuators: Arc::new(Mutex::new(HashMap::new())),
+            assessors: Arc::new(Mutex::new(HashMap::new())),
             address,
             data: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -126,8 +128,8 @@ impl Controller {
             let device = Self::new(id, name, Address::new(ip, port));
 
             let mut targets = HashMap::new();
-            targets.insert("_sensor", Arc::clone(&device.state.sensors));
-            targets.insert("_actuator", Arc::clone(&device.state.actuators));
+            targets.insert("_sensor", Arc::clone(&device.sensors));
+            targets.insert("_actuator", Arc::clone(&device.actuators));
 
             let mdns = ServiceDaemon::new().unwrap();
 
@@ -141,10 +143,10 @@ impl Controller {
             let sleep_duration = Duration::from_secs(1);
             let buffer_size = 10;
 
-            let sensors = Arc::clone(&device.state.sensors);
+            let sensors = Arc::clone(&device.sensors);
             let data = Arc::clone(&device.data);
-            let assessors = Arc::clone(&device.state.assessors);
-            let actuators = Arc::clone(&device.state.actuators);
+            let assessors = Arc::clone(&device.assessors);
+            let actuators = Arc::clone(&device.actuators);
 
             std::thread::spawn(move || {
                 let query = Message::request("GET", "/datum");
