@@ -32,6 +32,7 @@ impl DatumGenerator {
 impl Add for DatumGenerator {
     type Output = DatumGenerator;
 
+    // FIXME this is probably not very performant
     fn add(self, mut rhs: Self) -> Self::Output {
         let mut lhs = self;
 

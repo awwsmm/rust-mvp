@@ -6,6 +6,7 @@ use std::thread::JoinHandle;
 use mdns_sd::ServiceDaemon;
 use rand::{thread_rng, Rng};
 
+use actuator_temperature::command::Command;
 use datum::kind::Kind;
 use datum::unit::Unit;
 use datum::Datum;
@@ -47,7 +48,6 @@ impl Device for Environment {
         self.address
     }
 
-    // TODO Environment should respond to HTTP requests from Actuators.
     fn get_handler(&self) -> Handler {
         // Anything which depends on self must be cloned outside of the |stream| lambda.
         // We cannot refer to `self` inside of this lambda.
@@ -85,7 +85,6 @@ impl Device for Environment {
                                 (Some(kind), Some(unit)) => match (Kind::parse(kind), Unit::parse(unit)) {
                                     (Ok(kind), Ok(unit)) => {
                                         let datum = Self::register_new(&mut attributes, &id, kind, unit);
-
                                         success(stream, datum);
                                     }
                                     _ => {
@@ -108,8 +107,97 @@ impl Device for Environment {
                             success(stream, generator.generate())
                         }
                     }
+                } else if message.start_line == "POST /command HTTP/1.1" {
+                    fn success(stream: &mut TcpStream) {
+                        println!("[Environment] updated generator for Sensor");
+                        let response = Message::respond_ok();
+                        response.write(stream)
+                    }
+
+                    // Tell the Environment to update its State via a Command.
+                    //     ex: curl 10.12.50.26:5454/command -d '{"name":"HeatTo","value":"25"}' --header "id: my_id" --header "model: thermo5000"
+                    match (message.headers.get("id"), message.headers.get("model")) {
+                        (Some(id), Some(model)) => {
+                            match (Id::new(id), Model::parse(model)) {
+                                (id, Ok(model)) => {
+                                    match model {
+                                        Model::Controller => {
+                                            let msg = "does not accept Commands directly from the Controller";
+                                            Self::handler_failure(self_name.clone(), stream, msg)
+                                        }
+                                        Model::Environment => {
+                                            let msg = "does not accept Commands from itself";
+                                            Self::handler_failure(self_name.clone(), stream, msg)
+                                        }
+                                        Model::Unsupported => {
+                                            let msg = "unsupported device";
+                                            Self::handler_failure(self_name.clone(), stream, msg)
+                                        }
+                                        Model::Thermo5000 => {
+                                            match message.body.as_ref().map(Command::parse) {
+                                                Some(Ok(command)) => {
+                                                    println!("[Environment] successfully parsed command: {}", command);
+
+                                                    let mut attributes = attributes.lock().unwrap();
+
+                                                    match attributes.contains_key(&id) {
+                                                        false => {
+                                                            let msg = format!("cannot update generator for unknown id: {}", id);
+                                                            Self::handler_failure(self_name.clone(), stream, msg.as_str())
+                                                        }
+                                                        true => {
+                                                            let old_generator = attributes.remove(&id).unwrap();
+                                                            let unit = old_generator.unit;
+
+                                                            match command {
+                                                                Command::CoolTo(temp) => {
+                                                                    println!("[Environment] cooling to {}", temp);
+
+                                                                    let mut rng = thread_rng();
+
+                                                                    let slope = rng.gen_range(-0.001..0.0); // arbitrarily selected range of slopes
+                                                                    let noise = 0.0; // arbitrary selected range of noise values
+                                                                    let generator = generator::time_dependent::f32_linear(slope, noise, unit);
+
+                                                                    attributes.insert(id, old_generator + generator);
+                                                                }
+                                                                Command::HeatTo(temp) => {
+                                                                    println!("[Environment] heating to {}", temp);
+
+                                                                    let mut rng = thread_rng();
+
+                                                                    let slope = rng.gen_range(0.0..0.001); // arbitrarily selected range of slopes
+                                                                    let noise = 0.0; // arbitrary selected range of noise values
+                                                                    let generator = generator::time_dependent::f32_linear(slope, noise, unit);
+
+                                                                    attributes.insert(id, old_generator + generator);
+                                                                }
+                                                            }
+
+                                                            success(stream)
+                                                        }
+                                                    }
+                                                }
+                                                _ => {
+                                                    let msg = format!("could not parse \"{:?}\" as Thermo5000 Command", message.body);
+                                                    Self::handler_failure(self_name.clone(), stream, msg.as_str())
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    let msg = "could not parse required headers";
+                                    Self::handler_failure(self_name.clone(), stream, msg)
+                                }
+                            }
+                        }
+                        _ => {
+                            let msg = "missing required headers. 'id' and 'model' headers are required to update a generator.";
+                            Self::handler_failure(self_name.clone(), stream, msg)
+                        }
+                    }
                 } else {
-                    // TODO implement other endpoints
                     let msg = format!("cannot parse request: {}", message.start_line);
                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
                 }

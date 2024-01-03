@@ -49,7 +49,7 @@ impl Device for TemperatureActuator {
             if let Ok(message) = Message::read(stream) {
                 if message.start_line == "POST /command HTTP/1.1" {
                     // send a Command to this Actuator (Command is in the body)
-                    //     ex: curl 10.12.50.26:5454/command -d '{"name":"HeatTo","body":"25"}'
+                    //     ex: curl 10.12.50.26:5454/command -d '{"name":"HeatTo","value":"25"}'
 
                     match message.body.as_ref().map(Command::parse) {
                         Some(Ok(command)) => {
