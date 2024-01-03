@@ -7,12 +7,12 @@ use std::time::Duration;
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use datum::Datum;
+use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
-use device::{Device, Handler};
 
 use crate::assessor::{Assessor, DEFAULT_ASSESSOR};
 
@@ -185,21 +185,9 @@ impl Controller {
                                                     Some(actuator) => {
                                                         let actuator = <Self as Device>::extract_address(actuator).to_string();
                                                         println!("[Sensor] connecting to Actuator @ {}", actuator);
-
-                                                        // TODO actually send command to Actuator
-
-                                                        // let mut stream = TcpStream::connect(actuator).unwrap();
-                                                        //
-                                                        // let command = Message::ping(
-                                                        //     sender_name.as_str(),
-                                                        //     sender_address
-                                                        // ).with_body(
-                                                        //     command.to_string()
-                                                        // );
-                                                        //
-                                                        // println!("[Controller] sending Command to Actuator\nvvvvvvvvvv\n{}\n^^^^^^^^^^", command);
-                                                        //
-                                                        // command.write(&mut stream);
+                                                        let mut stream = TcpStream::connect(actuator).unwrap();
+                                                        let command = Message::request("POST", "/command").with_body((*command).to_string());
+                                                        command.write(&mut stream);
                                                     }
                                                 }
                                             }
