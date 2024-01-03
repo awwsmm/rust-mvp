@@ -14,9 +14,11 @@ use crate::address::Address;
 ///
 /// **Design Decision**: `request_line` is purposefully not `pub` so that a `Message` cannot be created directly.
 /// `Message`s must be created via one of the `impl` methods so that required headers can be added.
+///
+/// See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Messages
 #[derive(PartialEq, Debug)]
 pub struct Message {
-    request_line: String,
+    pub start_line: String,
     pub headers: HashMap<String, String>,
     pub body: Option<String>,
 }
@@ -44,7 +46,7 @@ impl Display for Message {
             .as_ref()
             .map(|b| format!("\r\n{}\r\n", b))
             .unwrap_or(String::from(""));
-        write!(f, "{}\r\n{}{}\r\n", self.request_line.trim(), headers, body)
+        write!(f, "{}\r\n{}{}\r\n", self.start_line.trim(), headers, body)
     }
 }
 
@@ -56,7 +58,7 @@ impl Message {
     /// required headers can be added.
     fn new(request_line: &str, headers: HashMap<String, String>, body: Option<String>) -> Message {
         Message {
-            request_line: String::from(request_line),
+            start_line: String::from(request_line),
             headers,
             body,
         }
@@ -90,7 +92,7 @@ impl Message {
     /// Creates a simple `200 OK` response to acknowledge the receipt of a `Message`.
     pub fn ack(sender_name: &str, sender_address: Address) -> Message {
         let mut message = Message::ping(sender_name, sender_address);
-        message.request_line = "HTTP/1.1 200 OK".into();
+        message.start_line = "HTTP/1.1 200 OK".into();
         message
     }
 
