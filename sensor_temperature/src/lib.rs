@@ -79,11 +79,7 @@ impl Device for TemperatureSensor {
                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
                 }
             } else {
-                Self::handler_failure(
-                    self_name.clone(),
-                    stream,
-                    "unable to read Message from stream",
-                )
+                Self::handler_failure(self_name.clone(), stream, "unable to read Message from stream")
             }
         })
     }

@@ -68,11 +68,7 @@ impl Datum {
 
         match (pieces.next(), pieces.next(), pieces.next()) {
             (Some(value), Some(unit), Some(timestamp)) => match (
-                Value::parse(
-                    value
-                        .trim_start_matches(r#""value":""#)
-                        .trim_end_matches('"'),
-                ),
+                Value::parse(value.trim_start_matches(r#""value":""#).trim_end_matches('"')),
                 Unit::parse(unit.trim_start_matches(r#""unit":""#).trim_end_matches('"')),
                 timestamp
                     .trim_start_matches(r#""timestamp":""#)
@@ -84,10 +80,7 @@ impl Datum {
                 (_, Err(msg), _) => Err(msg),
                 (_, _, Err(msg)) => Err(msg.to_string()),
             },
-            _ => Err(format!(
-                "'{}' is not formatted like a serialized Datum",
-                original
-            )),
+            _ => Err(format!("'{}' is not formatted like a serialized Datum", original)),
         }
     }
 
@@ -214,8 +207,7 @@ mod datum_tests {
     #[test]
     fn test_parse_failure_bad_value() {
         //                     r#"{"value":"42.0","unit":"°C","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#
-        let serialized =
-            r#"{"value":"42P0","unit":"°C","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#;
+        let serialized = r#"{"value":"42P0","unit":"°C","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#;
         let actual = Datum::parse(serialized);
         let msg = "cannot parse '42P0' as a Value".to_string();
 
@@ -225,8 +217,7 @@ mod datum_tests {
     #[test]
     fn test_parse_failure_bad_unit() {
         //                     r#"{"value":"42.0","unit":"°C","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#
-        let serialized =
-            r#"{"value":"42.0","unit":"oC","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#;
+        let serialized = r#"{"value":"42.0","unit":"oC","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#;
         let actual = Datum::parse(serialized);
         let msg = "cannot parse 'oC' as a Unit".to_string();
 
@@ -236,8 +227,7 @@ mod datum_tests {
     #[test]
     fn test_parse_failure_bad_timestamp() {
         //                     r#"{"value":"42.0","unit":"°C","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#
-        let serialized =
-            r#"{"value":"42.0","unit":"°C","timestamp":"2_24-01-03T18:03:21.742821+00:00"}"#;
+        let serialized = r#"{"value":"42.0","unit":"°C","timestamp":"2_24-01-03T18:03:21.742821+00:00"}"#;
         let actual = Datum::parse(serialized);
         let msg = "input contains invalid characters".to_string();
 

@@ -48,11 +48,7 @@ impl Device for TemperatureActuator {
                 let response = Message::respond_not_implemented().with_body(body);
                 response.write(stream)
             } else {
-                Self::handler_failure(
-                    self_name.clone(),
-                    stream,
-                    "unable to read Message from stream",
-                )
+                Self::handler_failure(self_name.clone(), stream, "unable to read Message from stream")
             }
         })
     }

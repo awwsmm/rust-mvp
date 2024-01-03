@@ -80,18 +80,12 @@ pub trait Sensor: Device {
                             Some(address) => {
                                 let mut stream = TcpStream::connect(address.to_string()).unwrap();
 
-                                println!(
-                                    "[Sensor] {} is querying environment for a Datum",
-                                    device_name
-                                );
+                                println!("[Sensor] {} is querying environment for a Datum", device_name);
                                 query.write(&mut stream);
                                 let message = Message::read(&mut stream).unwrap();
                                 let datum = Datum::parse(message.body.unwrap()).unwrap();
 
-                                println!(
-                                    "[Sensor] {} received a Datum from environment: {}",
-                                    device_name, datum
-                                );
+                                println!("[Sensor] {} received a Datum from environment: {}", device_name, datum);
 
                                 // enforce buffer length, then push, then process
                                 // .lock() must go in an inner scope so it is _unlocked_ while are thread::sleep()-ing, below

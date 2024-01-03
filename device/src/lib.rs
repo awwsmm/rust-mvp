@@ -67,15 +67,7 @@ pub trait Device: Sized {
         properties.insert("name".to_string(), self.get_name().to_string());
         properties.insert("model".to_string(), Self::get_model().to_string());
 
-        let my_service = ServiceInfo::new(
-            domain.as_str(),
-            name.as_str(),
-            host.as_str(),
-            ip,
-            port,
-            properties,
-        )
-        .unwrap();
+        let my_service = ServiceInfo::new(domain.as_str(), name.as_str(), host.as_str(), ip, port, properties).unwrap();
 
         mdns.register(my_service).unwrap()
     }
@@ -85,10 +77,7 @@ pub trait Device: Sized {
         let address = address.to_string();
         let name = &self.get_name();
 
-        println!(
-            "[Device::bind] binding new TCP listener to \"{}\" at {}",
-            name, address
-        );
+        println!("[Device::bind] binding new TCP listener to \"{}\" at {}", name, address);
 
         TcpListener::bind(address).unwrap()
     }
@@ -137,12 +126,7 @@ pub trait Device: Sized {
     }
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
-    fn discover_continually(
-        &self,
-        group: &str,
-        devices: &Targets,
-        mdns: ServiceDaemon,
-    ) -> JoinHandle<()> {
+    fn discover_continually(&self, group: &str, devices: &Targets, mdns: ServiceDaemon) -> JoinHandle<()> {
         let group = String::from(group);
         let mutex = Arc::clone(devices);
 
@@ -163,9 +147,7 @@ pub trait Device: Sized {
                     println!(
                         "[Device::discover_continually] \"{}\" discovered \"{}\"",
                         self_name,
-                        info.get_property("name")
-                            .map(|p| p.val_str())
-                            .unwrap_or("<unknown>")
+                        info.get_property("name").map(|p| p.val_str()).unwrap_or("<unknown>")
                     );
 
                     id.map(|i| devices_guard.insert(i, info));
@@ -202,9 +184,7 @@ pub trait Device: Sized {
                     println!(
                         "[Device::discover_once] \"{}\" discovered \"{}\"",
                         self_name,
-                        info.get_property("name")
-                            .map(|p| p.val_str())
-                            .unwrap_or("<unknown>")
+                        info.get_property("name").map(|p| p.val_str()).unwrap_or("<unknown>")
                     );
 
                     let _ = device.insert(info);

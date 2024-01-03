@@ -16,10 +16,7 @@ unsafe impl Send for DatumGenerator {}
 unsafe impl Sync for DatumGenerator {}
 
 impl DatumGenerator {
-    pub(crate) fn new(
-        generator: Box<dyn FnMut(DateTime<Utc>) -> Value>,
-        unit: Unit,
-    ) -> DatumGenerator {
+    pub(crate) fn new(generator: Box<dyn FnMut(DateTime<Utc>) -> Value>, unit: Unit) -> DatumGenerator {
         DatumGenerator { generator, unit }
     }
 

@@ -85,11 +85,7 @@ impl Device for Controller {
                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
                 }
             } else {
-                Self::handler_failure(
-                    self_name.clone(),
-                    stream,
-                    "unable to read Message from stream",
-                )
+                Self::handler_failure(self_name.clone(), stream, "unable to read Message from stream")
             }
         })
     }
@@ -172,10 +168,7 @@ impl Controller {
 
                             match Datum::parse(message.body.unwrap()) {
                                 Ok(datum) => {
-                                    println!(
-                                        "[Controller] received a Datum from {}: {}",
-                                        sensor_name, datum
-                                    );
+                                    println!("[Controller] received a Datum from {}: {}", sensor_name, datum);
 
                                     if !data.contains_key(id) {
                                         data.insert(id.clone(), VecDeque::new());

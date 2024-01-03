@@ -33,9 +33,7 @@ impl Display for Message {
         let mut headers: Vec<(&String, &String)> = self.headers.iter().collect();
         headers.sort();
 
-        let headers = headers
-            .into_iter()
-            .map(|(key, value)| format!("{}: {}", key, value));
+        let headers = headers.into_iter().map(|(key, value)| format!("{}: {}", key, value));
         let headers = headers.collect::<Vec<String>>().join("\r\n");
 
         // headers are always followed by a blank line, i.e. \r\n\r\n
@@ -78,10 +76,7 @@ impl Message {
     }
 
     /// Adds the given `headers` to this `Message`.
-    pub fn with_headers(
-        mut self,
-        headers: HashMap<impl Into<String>, impl Into<String>>,
-    ) -> Message {
+    pub fn with_headers(mut self, headers: HashMap<impl Into<String>, impl Into<String>>) -> Message {
         headers.into_iter().for_each(|(key, value)| {
             self.headers.insert(key.into(), value.into());
         });
@@ -91,8 +86,7 @@ impl Message {
     /// Sets the body of this message to the provided `body`.
     pub fn with_body<S: Into<String>>(mut self, body: S) -> Message {
         let body = body.into();
-        self.headers
-            .insert("Content-Length".into(), body.len().to_string());
+        self.headers.insert("Content-Length".into(), body.len().to_string());
         self.body = Some(body);
         self
     }
@@ -150,9 +144,7 @@ impl Message {
                     // a blank line (CRLF only) separates HTTP headers and body
                     match line.split_once(": ") {
                         // HTTP headers are always formatted as "key: value"
-                        Some((key, value)) => {
-                            headers.insert(key.trim().into(), value.trim().into())
-                        }
+                        Some((key, value)) => headers.insert(key.trim().into(), value.trim().into()),
                         None => continue, // skip any header lines that can't be parsed
                     };
                 }

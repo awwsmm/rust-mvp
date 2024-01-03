@@ -75,10 +75,7 @@ impl Device for Environment {
 
                     fn success(stream: &mut TcpStream, datum: Datum) {
                         let datum = datum.to_string();
-                        println!(
-                            "[Environment] generated Datum to send back to sensor: {}",
-                            datum
-                        );
+                        println!("[Environment] generated Datum to send back to sensor: {}", datum);
                         let response = Message::respond_ok().with_body(datum);
                         response.write(stream)
                     }
@@ -88,24 +85,17 @@ impl Device for Environment {
                             // if this Sensor ID is unknown, we can still generate data for it if the user has included the 'kind' and 'unit' headers
                             //     ex: curl --header "kind: bool" --header "unit: °C" 10.12.50.26:5454/datum/my_id
                             match (message.headers.get("kind"), message.headers.get("unit")) {
-                                (Some(kind), Some(unit)) => {
-                                    match (Kind::parse(kind), Unit::parse(unit)) {
-                                        (Ok(kind), Ok(unit)) => {
-                                            let datum = Self::register_new(
-                                                &mut attributes,
-                                                &id,
-                                                kind,
-                                                unit,
-                                            );
+                                (Some(kind), Some(unit)) => match (Kind::parse(kind), Unit::parse(unit)) {
+                                    (Ok(kind), Ok(unit)) => {
+                                        let datum = Self::register_new(&mut attributes, &id, kind, unit);
 
-                                            success(stream, datum);
-                                        }
-                                        _ => {
-                                            let msg = "could not parse required headers";
-                                            Self::handler_failure(self_name.clone(), stream, msg)
-                                        }
+                                        success(stream, datum);
                                     }
-                                }
+                                    _ => {
+                                        let msg = "could not parse required headers";
+                                        Self::handler_failure(self_name.clone(), stream, msg)
+                                    }
+                                },
                                 _ => {
                                     let msg = format!("unknown Sensor ID '{}'. To register a new sensor, you must include 'kind' and 'unit' headers in your request", id);
                                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
@@ -124,11 +114,7 @@ impl Device for Environment {
                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
                 }
             } else {
-                Self::handler_failure(
-                    self_name.clone(),
-                    stream,
-                    "unable to read Message from stream",
-                )
+                Self::handler_failure(self_name.clone(), stream, "unable to read Message from stream")
             }
         })
     }
