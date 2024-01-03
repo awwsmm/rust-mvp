@@ -44,10 +44,9 @@ pub trait Device: Sized {
     fn get_handler(&self) -> Handler;
 
     /// Provides a standard way to deal with failures in `get_handler()`.
-    fn handler_failure(stream: &mut TcpStream) {
-        let body = "unable to read Message from TcpStream";
-        println!("[Device] {}", body);
-        let response = Message::respond_bad_request().with_body(body);
+    fn handler_failure(self_name: Name, stream: &mut TcpStream, msg: &str) {
+        println!("[{}] {}", self_name, msg);
+        let response = Message::respond_bad_request().with_body(msg);
         response.write(stream)
     }
 

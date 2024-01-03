@@ -39,13 +39,19 @@ impl Device for TemperatureSensor {
 
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
     fn get_handler(&self) -> Handler {
+        let self_name = self.get_name().clone();
+
         Box::new(move |stream| {
             if let Ok(message) = Message::read(stream) {
                 let body = format!("[Device] ignoring message: {}", message);
                 let response = Message::respond_not_implemented().with_body(body);
                 response.write(stream)
             } else {
-                Self::handler_failure(stream)
+                Self::handler_failure(
+                    self_name.clone(),
+                    stream,
+                    "unable to read Message from stream",
+                )
             }
         })
     }

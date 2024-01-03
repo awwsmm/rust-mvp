@@ -96,6 +96,10 @@ impl Message {
         message
     }
 
+    pub fn respond_ok() -> Message {
+        Message::new("HTTP/1.1 200 OK", HashMap::new(), None)
+    }
+
     pub fn respond_not_implemented() -> Message {
         Message::new("HTTP/1.1 501 Not Implemented", HashMap::new(), None)
     }

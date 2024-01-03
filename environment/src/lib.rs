@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::net::IpAddr;
-use std::sync::{Arc, Mutex};
+use std::net::{IpAddr, TcpStream};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 
 use mdns_sd::ServiceDaemon;
@@ -50,13 +50,89 @@ impl Device for Environment {
 
     // TODO Environment should respond to HTTP requests from Actuators and Sensors.
     fn get_handler(&self) -> Handler {
+        // Anything which depends on self must be cloned outside of the |stream| lambda.
+        // We cannot refer to `self` inside of this lambda.
+
+        let self_name = self.name.clone();
+        let attributes = Arc::clone(&self.attributes);
+
         Box::new(move |stream| {
             if let Ok(message) = Message::read(stream) {
-                let body = format!("[Device] ignoring message: {}", message);
-                let response = Message::respond_not_implemented().with_body(body);
-                response.write(stream)
+                if message.start_line.starts_with("GET /datum/") {
+                    // Ask the Environment for the latest Datum for a Sensor by its ID.
+                    //
+                    // There are two possibilities here:
+                    //   1. the Environment knows about this Sensor (its ID) already
+                    //   2. the Environment doesn't know about this Sensor
+                    //
+                    // In case (1), all we need is the ID. In case (2), we also need to know the kind of data to generate.
+
+                    let id = message
+                        .start_line
+                        .trim_start_matches("GET /datum/")
+                        .trim_end_matches(" HTTP/1.1");
+                    let id = Id::new(id);
+
+                    let mut attributes = attributes.lock().unwrap();
+
+                    fn success(stream: &mut TcpStream, datum: Datum) {
+                        let datum = datum.to_string();
+                        println!(
+                            "[Environment] generated Datum to send back to sensor: {}",
+                            datum
+                        );
+                        let response = Message::respond_ok().with_body(datum);
+                        response.write(stream)
+                    }
+
+                    match attributes.get_mut(&id) {
+                        None => {
+                            // if this Sensor ID is unknown, we can still generate data for it if the user has included the 'kind' and 'unit' headers
+                            //     ex: curl --header "kind: bool" --header "unit: °C" 10.12.50.26:5454/datum/my_id
+                            match (message.headers.get("kind"), message.headers.get("unit")) {
+                                (Some(kind), Some(unit)) => {
+                                    match (Kind::parse(kind), Unit::parse(unit)) {
+                                        (Ok(kind), Ok(unit)) => {
+                                            let datum = Self::register_new(
+                                                &mut attributes,
+                                                &id,
+                                                kind,
+                                                unit,
+                                            )
+                                            .to_string();
+                                            println!("[Environment] generated Datum to send back to sensor: {}", datum);
+                                            let response = Message::respond_ok().with_body(datum);
+                                            response.write(stream)
+                                        }
+                                        _ => {
+                                            let msg = "could not parse required headers";
+                                            Self::handler_failure(self_name.clone(), stream, msg)
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    let msg = format!("unknown Sensor ID '{}'. To register a new sensor, you must include 'kind' and 'unit' headers in your request", id);
+                                    Self::handler_failure(self_name.clone(), stream, msg.as_str())
+                                }
+                            }
+                        }
+                        Some(generator) => {
+                            // if this Sensor ID is known, we can generate data for it without any additional information
+                            //     ex: curl 10.12.50.26:5454/datum/my_id
+                            success(stream, generator.generate())
+                        }
+                    }
+                } else {
+                    // TODO implement other endpoints
+                    let msg = format!("cannot parse request: {}", message.start_line);
+                    Self::handler_failure(self_name.clone(), stream, msg.as_str())
+                }
             } else {
-                Self::handler_failure(stream)
+                Self::handler_failure(
+                    self_name.clone(),
+                    stream,
+                    "unable to read Message from stream",
+                )
             }
         })
     }
@@ -73,13 +149,12 @@ impl Environment {
     }
 
     #[allow(dead_code)] // FIXME remove ASAP
-    fn get(
-        attributes: Arc<Mutex<HashMap<Id, DatumGenerator>>>,
+    fn register_new(
+        attributes: &mut MutexGuard<HashMap<Id, DatumGenerator>>,
         id: &Id,
         kind: Kind,
         unit: Unit,
     ) -> Datum {
-        let mut attributes = attributes.lock().unwrap();
         match attributes.get_mut(id) {
             Some(generator) => generator.generate(),
             None => {
