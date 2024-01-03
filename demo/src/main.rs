@@ -53,7 +53,7 @@ fn main() {
     //     std::thread::sleep(Duration::from_secs(1));
     //
     //     Controller::ping_sensor(
-    //         "Controller", // FIXME this must be "Controller" or this does not work
+    //         "Controller", // this must be "Controller" or this does not work
     //         Address::new(ip, environment_port),
     //         Address::new(ip, sensor_port),
     //     );

@@ -8,7 +8,7 @@ pub enum Unit {
     Unitless,
     PoweredOn,
     DegreesC,
-    // TODO add more units here as they are supported
+    // add more units here as they are supported
 }
 
 /// Allows `Unit`s to be converted to `String`s with `to_string()`.

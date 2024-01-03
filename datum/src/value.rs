@@ -13,7 +13,7 @@ pub enum Value {
     Bool(bool),
     Float(f32),
     Int(i32),
-    // TODO add more data types here as they are supported
+    // add more data types here as they are supported
 }
 
 /// Allows `Value`s to be converted to `String`s with `to_string()`.

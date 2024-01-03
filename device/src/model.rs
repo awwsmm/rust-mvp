@@ -13,7 +13,7 @@ pub enum Model {
     Environment,
     Unsupported,
     Thermo5000,
-    // TODO add more models here as they are supported
+    // add more models here as they are supported
 }
 
 /// Allows `Model`s to be converted to `String`s with `to_string()`.

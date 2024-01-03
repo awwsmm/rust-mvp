@@ -7,12 +7,12 @@ use std::time::Duration;
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use datum::Datum;
-use device::{Device, Handler};
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
 use device::name::Name;
+use device::{Device, Handler};
 
 use crate::assessor::{Assessor, DEFAULT_ASSESSOR};
 
@@ -53,7 +53,6 @@ impl Device for Controller {
         self.address
     }
 
-    // TODO Controller should respond to HTTP requests from Sensors.
     fn get_handler(&self) -> Handler {
         // Anything which depends on self must be cloned outside of the |stream| lambda.
         // We cannot refer to `self` inside of this lambda.
@@ -80,7 +79,6 @@ impl Device for Controller {
                     let response = Message::respond_ok().with_body(body);
                     response.write(stream)
                 } else {
-                    // TODO implement other endpoints
                     let msg = format!("cannot parse request: {}", message.start_line);
                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
                 }
@@ -102,11 +100,6 @@ impl Controller {
             address,
             data: Arc::new(Mutex::new(HashMap::new())),
         }
-    }
-
-    #[allow(dead_code)] // FIXME remove ASAP
-    fn is_supported(model: &Model) -> bool {
-        DEFAULT_ASSESSOR.contains_key(model.to_string().as_str())
     }
 
     pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
