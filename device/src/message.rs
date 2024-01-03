@@ -3,8 +3,6 @@ use std::fmt::{Display, Formatter};
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
 
-use crate::address::Address;
-
 /// `Device`s communicate by sending and receiving `Message`s.
 ///
 /// **Design Decision**: in this codebase, `Message`s are HTTP requests. All communication happens asynchronously via
@@ -64,11 +62,8 @@ impl Message {
     }
 
     /// Creates a simple `GET` message to ping one `Device` from another.
-    pub fn ping(sender_name: &str, sender_address: Address) -> Message {
-        let mut headers = HashMap::new();
-        headers.insert("sender_name".into(), sender_name.into());
-        headers.insert("sender_address".into(), sender_address.to_string());
-        Message::new("GET / HTTP/1.1", headers, None)
+    pub fn ping() -> Message {
+        Message::new("GET / HTTP/1.1", HashMap::new(), None)
     }
 
     /// Adds the given `headers` to this `Message`.
@@ -88,8 +83,8 @@ impl Message {
     }
 
     /// Creates a simple `200 OK` response to acknowledge the receipt of a `Message`.
-    pub fn ack(sender_name: &str, sender_address: Address) -> Message {
-        let mut message = Message::ping(sender_name, sender_address);
+    pub fn ack() -> Message {
+        let mut message = Message::ping();
         message.start_line = "HTTP/1.1 200 OK".into();
         message
     }
@@ -164,35 +159,21 @@ impl Message {
 
 #[cfg(test)]
 mod device_message_tests {
-    use std::net::IpAddr;
-
     use super::*;
 
     #[test]
     fn test_ping() {
-        let sender_name = "My Device";
-        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
-
-        let message = Message::ping(sender_name, sender_address);
+        let message = Message::ping();
         let actual = message.to_string();
 
-        let expected = [
-            "GET / HTTP/1.1",
-            "Content-Type: text/json; charset=utf-8",
-            "sender_address: 123.234.210.123:12345",
-            "sender_name: My Device",
-        ]
-        .join("\r\n");
+        let expected = ["GET / HTTP/1.1", "Content-Type: text/json; charset=utf-8"].join("\r\n");
 
         assert_eq!(actual, format!("{}\r\n\r\n", expected))
     }
 
     #[test]
     fn test_ping_with_headers() {
-        let sender_name = "My Device";
-        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
-
-        let message = Message::ping(sender_name, sender_address);
+        let message = Message::ping();
 
         let mut headers = HashMap::new();
         headers.insert("foo", "bar");
@@ -200,24 +181,14 @@ mod device_message_tests {
         let message = message.with_headers(headers);
         let actual = message.to_string();
 
-        let expected = [
-            "GET / HTTP/1.1",
-            "Content-Type: text/json; charset=utf-8",
-            "foo: bar",
-            "sender_address: 123.234.210.123:12345",
-            "sender_name: My Device",
-        ]
-        .join("\r\n");
+        let expected = ["GET / HTTP/1.1", "Content-Type: text/json; charset=utf-8", "foo: bar"].join("\r\n");
 
         assert_eq!(actual, format!("{}\r\n\r\n", expected))
     }
 
     #[test]
     fn test_ping_with_body() {
-        let sender_name = "My Device";
-        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
-
-        let message = Message::ping(sender_name, sender_address);
+        let message = Message::ping();
 
         let body = "Hello, World!";
 
@@ -228,8 +199,6 @@ mod device_message_tests {
             "GET / HTTP/1.1",
             "Content-Length: 13",
             "Content-Type: text/json; charset=utf-8",
-            "sender_address: 123.234.210.123:12345",
-            "sender_name: My Device",
             "",
             "Hello, World!",
         ]
@@ -240,10 +209,7 @@ mod device_message_tests {
 
     #[test]
     fn test_ping_with_headers_with_body() {
-        let sender_name = "My Device";
-        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
-
-        let message = Message::ping(sender_name, sender_address);
+        let message = Message::ping();
 
         let mut headers = HashMap::new();
         headers.insert("foo", "bar");
@@ -257,8 +223,6 @@ mod device_message_tests {
             "Content-Length: 13",
             "Content-Type: text/json; charset=utf-8",
             "foo: bar",
-            "sender_address: 123.234.210.123:12345",
-            "sender_name: My Device",
             "",
             "Hello, World!",
         ]
@@ -269,59 +233,32 @@ mod device_message_tests {
 
     #[test]
     fn test_ack() {
-        let sender_name = "My Device";
-        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
-
-        let message = Message::ack(sender_name, sender_address);
+        let message = Message::ack();
         let actual = message.to_string();
 
-        let expected = [
-            "HTTP/1.1 200 OK",
-            "Content-Type: text/json; charset=utf-8",
-            "sender_address: 123.234.210.123:12345",
-            "sender_name: My Device",
-        ]
-        .join("\r\n");
+        let expected = ["HTTP/1.1 200 OK", "Content-Type: text/json; charset=utf-8"].join("\r\n");
 
         assert_eq!(actual, format!("{}\r\n\r\n", expected))
     }
 
     #[test]
     fn test_write() {
-        let sender_name = "My Device";
-        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
-
-        let message = Message::ack(sender_name, sender_address);
+        let message = Message::ack();
 
         let mut tcp_stream = Vec::new();
         message.write(&mut tcp_stream);
         let actual = String::from_utf8(tcp_stream).unwrap();
 
-        let expected = [
-            "HTTP/1.1 200 OK",
-            "Content-Type: text/json; charset=utf-8",
-            "sender_address: 123.234.210.123:12345",
-            "sender_name: My Device",
-        ]
-        .join("\r\n");
+        let expected = ["HTTP/1.1 200 OK", "Content-Type: text/json; charset=utf-8"].join("\r\n");
 
         assert_eq!(actual, format!("{}\r\n\r\n", expected))
     }
 
     #[test]
     fn test_read() {
-        let sender_name = "My Device";
-        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
+        let expected = Message::ack();
 
-        let expected = Message::ack(sender_name, sender_address);
-
-        let serialized = [
-            "HTTP/1.1 200 OK",
-            "Content-Type: text/json; charset=utf-8",
-            "sender_address: 123.234.210.123:12345",
-            "sender_name: My Device",
-        ]
-        .join("\r\n");
+        let serialized = ["HTTP/1.1 200 OK", "Content-Type: text/json; charset=utf-8"].join("\r\n");
 
         let actual = Message::read_from_buffer(serialized.as_bytes()).unwrap();
 
@@ -330,16 +267,11 @@ mod device_message_tests {
 
     #[test]
     fn test_read_with_misformatted_header() {
-        let sender_name = "My Device";
-        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
-
-        let expected = Message::ack(sender_name, sender_address);
+        let expected = Message::ack();
 
         let serialized = [
             "HTTP/1.1 200 OK",
             "Content-Type: text/json; charset=utf-8",
-            "sender_address: 123.234.210.123:12345",
-            "sender_name: My Device",
             "kablooie", // this line is misformatted, it should be skipped
         ]
         .join("\r\n");
@@ -351,10 +283,7 @@ mod device_message_tests {
 
     #[test]
     fn test_read_with_body() {
-        let sender_name = "My Device";
-        let sender_address = Address::new(IpAddr::from([123, 234, 210, 123]), 12345);
-
-        let message = Message::ping(sender_name, sender_address);
+        let message = Message::ping();
         let body = "Hello, World!";
         let expected = message.with_body(body);
 
@@ -362,8 +291,6 @@ mod device_message_tests {
             "GET / HTTP/1.1",
             "Content-Length: 13",
             "Content-Type: text/json; charset=utf-8",
-            "sender_address: 123.234.210.123:12345",
-            "sender_name: My Device",
             "",
             "Hello, World!",
         ]

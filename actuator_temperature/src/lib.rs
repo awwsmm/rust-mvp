@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 
 use mdns_sd::ServiceInfo;
@@ -43,6 +45,9 @@ impl Device for TemperatureActuator {
         // Anything which depends on self must be cloned outside of the |stream| lambda.
         // We cannot refer to `self` inside of this lambda.
         let self_name = self.get_name().clone();
+        let self_id = self.get_id().clone();
+        let self_model = Self::get_model();
+
         let environment = Arc::clone(self.get_environment());
 
         Box::new(move |stream| {
@@ -57,12 +62,21 @@ impl Device for TemperatureActuator {
 
                             match environment.as_ref().map(Self::extract_address) {
                                 Some(address) => {
-                                    println!("[Actuator] connecting to environment @ {}", address);
-                                    let msg = format!("not yet implemented -- need to forward command {} to Environment", command);
-                                    Self::handler_failure(self_name.clone(), stream, msg.as_str())
+                                    println!("[Actuator] forwarding command {} to environment @ {}", command, address);
 
-                                    // let mut stream = TcpStream::connect(address.to_string()).unwrap();
-                                    // TODO actually send command to Environment
+                                    let mut environment = TcpStream::connect(address.to_string()).unwrap();
+
+                                    let mut headers = HashMap::new();
+                                    headers.insert("id", self_id.to_string());
+                                    headers.insert("model", self_model.to_string());
+
+                                    // forward Command to Environment
+                                    let forwarded_command = message.with_headers(headers);
+                                    forwarded_command.write(&mut environment);
+
+                                    // ack request from Controller to close the socket
+                                    let ack = Message::ack();
+                                    ack.write(stream)
                                 }
                                 None => {
                                     let msg = "could not find environment";

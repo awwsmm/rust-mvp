@@ -109,16 +109,6 @@ impl Controller {
         DEFAULT_ASSESSOR.contains_key(model.to_string().as_str())
     }
 
-    /// Pings the latest `Sensor` so that it can (asynchronously) send a response containing the latest `Datum`.
-    pub fn ping_sensor(sender_name: &str, return_address: Address, sensor_address: Address) {
-        let mut tcp_stream = TcpStream::connect(sensor_address.to_string()).unwrap();
-
-        // send the minimum possible payload. We only want to ping the Sensor
-        // see: https://stackoverflow.com/a/9734866
-        let ping = Message::ping(sender_name, return_address);
-        ping.write(&mut tcp_stream);
-    }
-
     pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             // --------------------------------------------------------------------------------
