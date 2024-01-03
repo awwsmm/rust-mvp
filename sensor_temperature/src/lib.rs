@@ -1,9 +1,11 @@
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use mdns_sd::ServiceInfo;
 
 use datum::kind::Kind;
 use datum::unit::Unit;
+use datum::Datum;
 use device::address::Address;
 use device::id::Id;
 use device::message::Message;
@@ -18,6 +20,7 @@ pub struct TemperatureSensor {
     environment: Arc<Mutex<Option<ServiceInfo>>>,
     controller: Arc<Mutex<Option<ServiceInfo>>>,
     address: Address,
+    data: Arc<Mutex<VecDeque<Datum>>>,
 }
 
 impl Device for TemperatureSensor {
@@ -65,6 +68,7 @@ impl Sensor for TemperatureSensor {
             environment: Arc::new(Mutex::new(None)),
             controller: Arc::new(Mutex::new(None)),
             address,
+            data: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
 
@@ -94,5 +98,9 @@ impl Sensor for TemperatureSensor {
 
     fn get_datum_unit(&self) -> Unit {
         Unit::DegreesC
+    }
+
+    fn get_data(&self) -> &Arc<Mutex<VecDeque<Datum>>> {
+        &self.data
     }
 }

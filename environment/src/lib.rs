@@ -26,7 +26,6 @@ mod generator;
 pub struct Environment {
     name: Name,
     id: Id,
-    #[allow(dead_code)] // FIXME remove ASAP
     attributes: Arc<Mutex<HashMap<Id, DatumGenerator>>>,
     address: Address,
 }
@@ -48,7 +47,7 @@ impl Device for Environment {
         self.address
     }
 
-    // TODO Environment should respond to HTTP requests from Actuators and Sensors.
+    // TODO Environment should respond to HTTP requests from Actuators.
     fn get_handler(&self) -> Handler {
         // Anything which depends on self must be cloned outside of the |stream| lambda.
         // We cannot refer to `self` inside of this lambda.
@@ -148,7 +147,6 @@ impl Environment {
         }
     }
 
-    #[allow(dead_code)] // FIXME remove ASAP
     fn register_new(
         attributes: &mut MutexGuard<HashMap<Id, DatumGenerator>>,
         id: &Id,

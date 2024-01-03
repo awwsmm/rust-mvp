@@ -73,7 +73,10 @@ impl Message {
     }
 
     /// Adds the given `headers` to this `Message`.
-    pub fn with_headers(mut self, headers: HashMap<&str, &str>) -> Message {
+    pub fn with_headers(
+        mut self,
+        headers: HashMap<impl Into<String>, impl Into<String>>,
+    ) -> Message {
         headers.into_iter().for_each(|(key, value)| {
             self.headers.insert(key.into(), value.into());
         });
@@ -94,6 +97,11 @@ impl Message {
         let mut message = Message::ping(sender_name, sender_address);
         message.start_line = "HTTP/1.1 200 OK".into();
         message
+    }
+
+    pub fn request(method: &str, url: &str) -> Message {
+        let request_line = format!("{} {} HTTP/1.1", method, url);
+        Message::new(request_line.as_str(), HashMap::new(), None)
     }
 
     pub fn respond_ok() -> Message {
