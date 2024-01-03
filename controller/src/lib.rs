@@ -58,12 +58,32 @@ impl Device for Controller {
         // Anything which depends on self must be cloned outside of the |stream| lambda.
         // We cannot refer to `self` inside of this lambda.
         let self_name = self.get_name().clone();
+        let self_data = Arc::clone(&self.data);
 
         Box::new(move |stream| {
             if let Ok(message) = Message::read(stream) {
-                let body = format!("[Device] ignoring message: {}", message);
-                let response = Message::respond_not_implemented().with_body(body);
-                response.write(stream)
+                if message.start_line == "GET /data HTTP/1.1" {
+                    // get all of the data in this Controller's buffer, grouped by Sensor
+                    //     ex: curl 10.12.50.26:5454/data
+
+                    let data = self_data.lock().unwrap();
+                    let sensors: Vec<String> = data
+                        .iter()
+                        .map(|(id, buffer)| {
+                            let data: Vec<String> = buffer.iter().map(|d| d.to_string()).collect();
+                            let data = data.join(",");
+                            format!(r#"{{"id":"{}","data":[{}]}}"#, id, data)
+                        })
+                        .collect();
+                    let body = format!("[{}]", sensors.join(","));
+
+                    let response = Message::respond_ok().with_body(body);
+                    response.write(stream)
+                } else {
+                    // TODO implement other endpoints
+                    let msg = format!("cannot parse request: {}", message.start_line);
+                    Self::handler_failure(self_name.clone(), stream, msg.as_str())
+                }
             } else {
                 Self::handler_failure(
                     self_name.clone(),
@@ -149,23 +169,29 @@ impl Controller {
                             println!("[Controller] querying {} for a Datum", sensor_name);
                             query.write(&mut stream);
                             let message = Message::read(&mut stream).unwrap();
-                            let datum = Datum::parse(message.body.unwrap()).unwrap();
 
-                            println!(
-                                "[Controller] received a Datum from {}: {}",
-                                sensor_name, datum
-                            );
+                            match Datum::parse(message.body.unwrap()) {
+                                Ok(datum) => {
+                                    println!(
+                                        "[Controller] received a Datum from {}: {}",
+                                        sensor_name, datum
+                                    );
 
-                            if !data.contains_key(id) {
-                                data.insert(id.clone(), VecDeque::new());
+                                    if !data.contains_key(id) {
+                                        data.insert(id.clone(), VecDeque::new());
+                                    }
+                                    let buffer: &mut VecDeque<Datum> = data.get_mut(id).unwrap();
+
+                                    // enforce buffer length, then save to buffer
+                                    if buffer.len() == buffer_size {
+                                        buffer.pop_back();
+                                    }
+                                    buffer.push_front(datum.clone());
+                                }
+                                Err(msg) => {
+                                    println!("[Controller] received error: {}", msg)
+                                }
                             }
-                            let buffer: &mut VecDeque<Datum> = data.get_mut(id).unwrap();
-
-                            // enforce buffer length, then save to buffer
-                            if buffer.len() == buffer_size {
-                                buffer.pop_back();
-                            }
-                            buffer.push_front(datum.clone());
 
                             // TODO process data and send Commands to Actuators
                         }

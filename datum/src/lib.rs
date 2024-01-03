@@ -36,7 +36,7 @@ impl Display for Datum {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}@{}@{}",
+            r#"{{"value":"{}","unit":"{}","timestamp":"{}"}}"#,
             self.value,
             self.unit,
             self.timestamp.to_rfc3339()
@@ -60,14 +60,24 @@ impl Datum {
 
     /// Attempts to parse a `Datum` from the provided string or string slice.
     pub fn parse<S: Into<String>>(s: S) -> Result<Datum, String> {
-        let string = s.into();
-        let mut pieces = string.split('@');
+        let original = s.into();
+        let mut string = original.clone();
+        string.retain(|c| !c.is_whitespace());
+        let string = string.trim_start_matches('{').trim_end_matches('}');
+        let mut pieces = string.split(',');
 
         match (pieces.next(), pieces.next(), pieces.next()) {
             (Some(value), Some(unit), Some(timestamp)) => match (
-                Value::parse(value),
-                Unit::parse(unit),
-                timestamp.parse::<DateTime<Utc>>(),
+                Value::parse(
+                    value
+                        .trim_start_matches(r#""value":""#)
+                        .trim_end_matches('"'),
+                ),
+                Unit::parse(unit.trim_start_matches(r#""unit":""#).trim_end_matches('"')),
+                timestamp
+                    .trim_start_matches(r#""timestamp":""#)
+                    .trim_end_matches('"')
+                    .parse::<DateTime<Utc>>(),
             ) {
                 (Ok(value), Ok(unit), Ok(timestamp)) => Ok(Datum::new(value, unit, timestamp)),
                 (Err(msg), _, _) => Err(msg),
@@ -76,7 +86,7 @@ impl Datum {
             },
             _ => Err(format!(
                 "'{}' is not formatted like a serialized Datum",
-                string
+                original
             )),
         }
     }
@@ -183,7 +193,7 @@ mod datum_tests {
     fn test_create_new_now() {
         let earlier = Utc::now();
         std::thread::sleep(Duration::from_millis(1));
-        let datum = Datum::new_now(42.0, Unit::Unitless);
+        let datum = Datum::new_now(42.0, Unit::DegreesC);
         std::thread::sleep(Duration::from_millis(1));
         let later = Utc::now();
 
@@ -193,8 +203,8 @@ mod datum_tests {
 
     #[test]
     fn test_parse_failure_not_enough_pieces() {
-        //                     "42.0@@2023-12-30T10:29:09.893292+00:00"
-        let serialized = "42.0@";
+        //                     r#"{"value":"42.0","unit":"°C","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#
+        let serialized = r#"{"value":"42.0","unit":"°C"}"#;
         let actual = Datum::parse(serialized);
         let msg = format!("'{}' is not formatted like a serialized Datum", serialized);
 
@@ -203,8 +213,9 @@ mod datum_tests {
 
     #[test]
     fn test_parse_failure_bad_value() {
-        //                     "42.0@@2023-12-30T10:29:09.893292+00:00"
-        let serialized = "42P0@@2023-12-30T10:29:09.893292+00:00";
+        //                     r#"{"value":"42.0","unit":"°C","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#
+        let serialized =
+            r#"{"value":"42P0","unit":"°C","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#;
         let actual = Datum::parse(serialized);
         let msg = "cannot parse '42P0' as a Value".to_string();
 
@@ -213,20 +224,22 @@ mod datum_tests {
 
     #[test]
     fn test_parse_failure_bad_unit() {
-        //                     "42.0@@2023-12-30T10:29:09.893292+00:00"
-        let serialized = "42.0@???@2023-12-30T10:29:09.893292+00:00";
+        //                     r#"{"value":"42.0","unit":"°C","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#
+        let serialized =
+            r#"{"value":"42.0","unit":"oC","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#;
         let actual = Datum::parse(serialized);
-        let msg = "cannot parse '???' as a Unit".to_string();
+        let msg = "cannot parse 'oC' as a Unit".to_string();
 
         assert_eq!(actual, Err(msg))
     }
 
     #[test]
     fn test_parse_failure_bad_timestamp() {
-        //                     "42.0@@2023-12-30T10:29:09.893292+00:00"
-        let serialized = "42.0@@2";
+        //                     r#"{"value":"42.0","unit":"°C","timestamp":"2024-01-03T18:03:21.742821+00:00"}"#
+        let serialized =
+            r#"{"value":"42.0","unit":"°C","timestamp":"2_24-01-03T18:03:21.742821+00:00"}"#;
         let actual = Datum::parse(serialized);
-        let msg = "premature end of input".to_string();
+        let msg = "input contains invalid characters".to_string();
 
         assert_eq!(actual, Err(msg))
     }

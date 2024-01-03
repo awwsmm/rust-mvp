@@ -57,6 +57,11 @@ impl Message {
     /// created directly. `Message`s must be created via one of the `pub` `impl` methods so that
     /// required headers can be added.
     fn new(request_line: &str, headers: HashMap<String, String>, body: Option<String>) -> Message {
+        // All messages are JSON UTF-8.
+        // Without this header, browsers will render "°C" as "Â°C"
+        let mut headers = headers.clone();
+        headers.insert("Content-Type".into(), "text/json; charset=utf-8".into());
+
         Message {
             start_line: String::from(request_line),
             headers,
@@ -187,6 +192,7 @@ mod device_message_tests {
 
         let expected = [
             "GET / HTTP/1.1",
+            "Content-Type: text/json; charset=utf-8",
             "sender_address: 123.234.210.123:12345",
             "sender_name: My Device",
         ]
@@ -210,6 +216,7 @@ mod device_message_tests {
 
         let expected = [
             "GET / HTTP/1.1",
+            "Content-Type: text/json; charset=utf-8",
             "foo: bar",
             "sender_address: 123.234.210.123:12345",
             "sender_name: My Device",
@@ -234,6 +241,7 @@ mod device_message_tests {
         let expected = [
             "GET / HTTP/1.1",
             "Content-Length: 13",
+            "Content-Type: text/json; charset=utf-8",
             "sender_address: 123.234.210.123:12345",
             "sender_name: My Device",
             "",
@@ -261,6 +269,7 @@ mod device_message_tests {
         let expected = [
             "GET / HTTP/1.1",
             "Content-Length: 13",
+            "Content-Type: text/json; charset=utf-8",
             "foo: bar",
             "sender_address: 123.234.210.123:12345",
             "sender_name: My Device",
@@ -282,6 +291,7 @@ mod device_message_tests {
 
         let expected = [
             "HTTP/1.1 200 OK",
+            "Content-Type: text/json; charset=utf-8",
             "sender_address: 123.234.210.123:12345",
             "sender_name: My Device",
         ]
@@ -303,6 +313,7 @@ mod device_message_tests {
 
         let expected = [
             "HTTP/1.1 200 OK",
+            "Content-Type: text/json; charset=utf-8",
             "sender_address: 123.234.210.123:12345",
             "sender_name: My Device",
         ]
@@ -320,6 +331,7 @@ mod device_message_tests {
 
         let serialized = [
             "HTTP/1.1 200 OK",
+            "Content-Type: text/json; charset=utf-8",
             "sender_address: 123.234.210.123:12345",
             "sender_name: My Device",
         ]
@@ -339,6 +351,7 @@ mod device_message_tests {
 
         let serialized = [
             "HTTP/1.1 200 OK",
+            "Content-Type: text/json; charset=utf-8",
             "sender_address: 123.234.210.123:12345",
             "sender_name: My Device",
             "kablooie", // this line is misformatted, it should be skipped
@@ -362,6 +375,7 @@ mod device_message_tests {
         let serialized = [
             "GET / HTTP/1.1",
             "Content-Length: 13",
+            "Content-Type: text/json; charset=utf-8",
             "sender_address: 123.234.210.123:12345",
             "sender_name: My Device",
             "",
