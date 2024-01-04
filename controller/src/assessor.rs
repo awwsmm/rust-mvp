@@ -18,9 +18,9 @@ pub static DEFAULT_ASSESSOR: Map<&str, Assessor> = phf_map! {
         let t = datum.get_as_float().unwrap();
         assert_eq!(datum.unit, Unit::DegreesC);
 
-        if t > 25.0 {
+        if t > 28.0 {
             Some(Box::new(actuator_temperature::command::Command::CoolBy(t - 25.0)))
-        } else if t < 25.0 {
+        } else if t < 22.0 {
             Some(Box::new(actuator_temperature::command::Command::HeatBy(25.0 - t)))
         } else {
             None

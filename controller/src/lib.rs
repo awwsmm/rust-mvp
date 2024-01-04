@@ -72,45 +72,79 @@ impl Device for Controller {
 
                     let response = Message::respond_ok().with_body(body);
                     response.write(stream)
+                } else if message.start_line == "GET /datum HTTP/1.1" {
+                    // get the latest Datum in this Controller's buffer, grouped by Sensor
+                    //     ex: curl 10.12.50.26:5454/datum
+
+                    let data = self_data.lock().unwrap();
+                    let sensors: Vec<String> = data
+                        .iter()
+                        .map(|(id, buffer)| {
+                            let data = buffer.iter().next().map(|d| d.to_string());
+                            format!(r#"{{"id":"{}","datum":[{}]}}"#, id, data.unwrap_or_default())
+                        })
+                        .collect();
+                    let body = format!("[{}]", sensors.join(","));
+
+                    let response = Message::respond_ok().with_body(body);
+                    response.write(stream)
                 } else if message.start_line == "GET /ui HTTP/1.1" {
                     let plotly = std::fs::read_to_string("./controller/resources/plotly-2.27.0.min.js").unwrap();
-
                     let html = r##"
 <html>
 <head>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script>
-PLACEHOLDER
+window.addEventListener('load', function() {
 
-function getData(){
-   var url = "http://192.168.2.16:6565/data";
+    const graphDiv = document.getElementById('graph')
 
-   var myrequest = new XMLHttpRequest();
-   myrequest.open("GET", url, true);
+    const url = "http://192.168.2.16:6565/data";
+    const myrequest = new XMLHttpRequest();
+    myrequest.open("GET", url, true);
 
-   myrequest.onload = (function() {
-      if (this.status == 200) {
+    myrequest.onload = (function() {
+        if (this.status == 200) {
 
-        // only one sensor right now, so [0] to get the first one
-        const data = JSON.parse(myrequest.responseText)[0];
+            // only one sensor right now, so [0] to get the first one
+            const data = JSON.parse(myrequest.responseText)[0];
 
-        TESTER = document.getElementById('tester');
-        // TESTER.innerHTML = JSON.stringify(data["data"]);
+            Plotly.newPlot(graphDiv, [{
+                x: data["data"].map(datum => datum["timestamp"]),
+                y: data["data"].map(datum => datum["value"]) }], {
+            margin: { t: 0 } } );
+        }
+    });
 
-        Plotly.newPlot( TESTER, [{
-        x: data["data"].map(datum => datum["timestamp"]),
-        y: data["data"].map(datum => datum["value"]) }], {
-        margin: { t: 0 } } );
+    myrequest.send();
 
-         setTimeout(getData(), 1000);
-      }
-   });
-   myrequest.send();
-}
-getData();
+    var interval = setInterval(function() {
 
+        const url = "http://192.168.2.16:6565/datum";
+        const myrequest = new XMLHttpRequest();
+        myrequest.open("GET", url, true);
+
+        myrequest.onload = (function() {
+            if (this.status == 200) {
+
+                // only one sensor right now, so [0] to get the first one
+                const datum = JSON.parse(myrequest.responseText)[0];
+
+                Plotly.extendTraces(graphDiv, {
+                    x: [datum["datum"].map(datum => datum["timestamp"])],
+                    y: [datum["datum"].map(datum => datum["value"])]
+                }, [0], 500)
+            }
+        });
+
+        myrequest.send();
+
+    }, 50);
+
+});
 </script>
 <body>
-<div id="tester" style="width:600px;height:250px;"></div>
+<div id="graph"></div>
 </body>
 </html>
                     "##
