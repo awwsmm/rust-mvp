@@ -7,7 +7,6 @@ use std::time::Duration;
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use datum::Datum;
-use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
@@ -32,7 +31,6 @@ pub struct Controller {
     sensors: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
     actuators: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
     assessors: Arc<Mutex<HashMap<Id, Assessor>>>,
-    address: Address,
     data: Arc<Mutex<HashMap<Id, VecDeque<Datum>>>>,
 }
 
@@ -47,10 +45,6 @@ impl Device for Controller {
 
     fn get_model() -> Model {
         Model::Controller
-    }
-
-    fn get_address(&self) -> Address {
-        self.address
     }
 
     fn get_handler(&self) -> Handler {
@@ -140,14 +134,13 @@ getData();
 }
 
 impl Controller {
-    fn new(id: Id, name: Name, address: Address) -> Self {
+    fn new(id: Id, name: Name) -> Self {
         Self {
             name,
             id,
             sensors: Arc::new(Mutex::new(HashMap::new())),
             actuators: Arc::new(Mutex::new(HashMap::new())),
             assessors: Arc::new(Mutex::new(HashMap::new())),
-            address,
             data: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -158,7 +151,7 @@ impl Controller {
             // create Device and discover required Message targets
             // --------------------------------------------------------------------------------
 
-            let device = Self::new(id, name, Address::new(ip, port));
+            let device = Self::new(id, name);
 
             let mut targets = HashMap::new();
             targets.insert("_sensor", Arc::clone(&device.sensors));

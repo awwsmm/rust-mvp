@@ -6,7 +6,6 @@ use mdns_sd::ServiceInfo;
 use datum::kind::Kind;
 use datum::unit::Unit;
 use datum::Datum;
-use device::address::Address;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
@@ -18,7 +17,6 @@ pub struct TemperatureSensor {
     name: Name,
     environment: Arc<Mutex<Option<ServiceInfo>>>,
     controller: Arc<Mutex<Option<ServiceInfo>>>,
-    address: Address,
     data: Arc<Mutex<VecDeque<Datum>>>,
 }
 
@@ -35,23 +33,18 @@ impl Device for TemperatureSensor {
         Model::Thermo5000
     }
 
-    fn get_address(&self) -> Address {
-        self.address
-    }
-
     fn get_handler(&self) -> Handler {
         self.default_handler()
     }
 }
 
 impl Sensor for TemperatureSensor {
-    fn new(id: Id, name: Name, address: Address) -> TemperatureSensor {
+    fn new(id: Id, name: Name) -> TemperatureSensor {
         TemperatureSensor {
             id,
             name,
             environment: Arc::new(Mutex::new(None)),
             controller: Arc::new(Mutex::new(None)),
-            address,
             data: Arc::new(Mutex::new(VecDeque::new())),
         }
     }

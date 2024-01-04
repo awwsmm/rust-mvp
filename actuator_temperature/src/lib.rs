@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex};
 use mdns_sd::ServiceInfo;
 
 use actuator::Actuator;
-use device::address::Address;
 use device::id::Id;
 use device::model::Model;
 use device::name::Name;
@@ -15,7 +14,6 @@ pub struct TemperatureActuator {
     id: Id,
     name: Name,
     environment: Arc<Mutex<Option<ServiceInfo>>>,
-    address: Address,
 }
 
 impl Device for TemperatureActuator {
@@ -31,22 +29,17 @@ impl Device for TemperatureActuator {
         Model::Thermo5000
     }
 
-    fn get_address(&self) -> Address {
-        self.address
-    }
-
     fn get_handler(&self) -> Handler {
         self.default_handler()
     }
 }
 
 impl Actuator for TemperatureActuator {
-    fn new(id: Id, name: Name, address: Address) -> Self {
+    fn new(id: Id, name: Name) -> Self {
         Self {
             id,
             name,
             environment: Arc::new(Mutex::new(None)),
-            address,
         }
     }
 

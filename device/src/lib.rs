@@ -21,8 +21,13 @@ pub mod name;
 pub type Handler = Box<dyn Fn(&mut TcpStream)>;
 
 /// A `Device` exists on the network and is discoverable via mDNS.
+///
+/// **Design Decision**: `Device` must implement `Sized` so that we can call `Self::new` in the
+/// `start` methods of `Actuator`, `Controller`, `Environment`, and `Sensor`. We need a `new` method
+/// on `Device` because we want to be able to construct a new instance of the `Device` within a new
+/// thread, without the user having to do all of this setup correctly.
 pub trait Device: Sized {
-    /// Returns the user-friendly name of this `Device`.
+    /// Returns the user-defined name of this `Device`.
     fn get_name(&self) -> &Name;
 
     /// Returns the unique ID of this `Device`.
@@ -30,9 +35,6 @@ pub trait Device: Sized {
 
     /// Returns the model of this `Device`, which may or may not be supported by the `Controller`.
     fn get_model() -> Model;
-
-    /// Returns the ip:port address of this `Device` (e.g. "192.168.1.251:8787').
-    fn get_address(&self) -> Address;
 
     /// Returns the helper which defines how to handle HTTP requests.
     fn get_handler(&self) -> Handler;

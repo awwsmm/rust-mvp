@@ -6,7 +6,6 @@ use std::thread::JoinHandle;
 
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
-use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::name::Name;
@@ -14,7 +13,7 @@ use device::{Device, Handler};
 
 /// An Actuator mutates the Environment.
 pub trait Actuator: Device {
-    fn new(id: Id, name: Name, address: Address) -> Self;
+    fn new(id: Id, name: Name) -> Self;
 
     fn get_environment(&self) -> &Arc<Mutex<Option<ServiceInfo>>>;
 
@@ -71,7 +70,7 @@ pub trait Actuator: Device {
 
     fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
-            let device = Self::new(id, name, Address::new(ip, port));
+            let device = Self::new(id, name);
 
             let mdns = ServiceDaemon::new().unwrap();
 

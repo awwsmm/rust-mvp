@@ -10,7 +10,6 @@ use actuator_temperature::command::Command;
 use datum::kind::Kind;
 use datum::unit::Unit;
 use datum::Datum;
-use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
@@ -28,7 +27,6 @@ pub struct Environment {
     name: Name,
     id: Id,
     attributes: Arc<Mutex<HashMap<Id, DatumGenerator>>>,
-    address: Address,
 }
 
 impl Device for Environment {
@@ -42,10 +40,6 @@ impl Device for Environment {
 
     fn get_model() -> Model {
         Model::Environment
-    }
-
-    fn get_address(&self) -> Address {
-        self.address
     }
 
     fn get_handler(&self) -> Handler {
@@ -207,12 +201,11 @@ impl Device for Environment {
 }
 
 impl Environment {
-    fn new(id: Id, name: Name, address: Address) -> Self {
+    fn new(id: Id, name: Name) -> Self {
         Self {
             name,
             id,
             attributes: Arc::new(Mutex::new(HashMap::new())),
-            address,
         }
     }
 
@@ -250,7 +243,7 @@ impl Environment {
 
     pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
-            let device = Self::new(id, name, Address::new(ip, port));
+            let device = Self::new(id, name);
 
             let mdns = ServiceDaemon::new().unwrap();
 
