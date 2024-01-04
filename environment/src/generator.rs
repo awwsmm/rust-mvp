@@ -90,6 +90,12 @@ pub mod time_dependent {
     }
 }
 
+pub fn f32_constant(value: f32, unit: Unit) -> DatumGenerator {
+    let f = move |_| -> Value { Value::Float(value) };
+
+    DatumGenerator::new(Box::new(f), unit)
+}
+
 pub fn bool_alternating(initial: bool, unit: Unit) -> DatumGenerator {
     let mut latest_value = !initial;
 

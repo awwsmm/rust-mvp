@@ -115,7 +115,7 @@ impl Device for Environment {
                     }
 
                     // Tell the Environment to update its State via a Command.
-                    //     ex: curl 10.12.50.26:5454/command -d '{"name":"HeatTo","value":"25"}' --header "id: my_id" --header "model: thermo5000"
+                    //     ex: curl 10.12.50.26:5454/command -d '{"name":"HeatBy","value":"25"}' --header "id: my_id" --header "model: thermo5000"
                     match (message.headers.get("id"), message.headers.get("model")) {
                         (Some(id), Some(model)) => {
                             match (Id::new(id), Model::parse(model)) {
@@ -150,25 +150,23 @@ impl Device for Environment {
                                                             let unit = old_generator.unit;
 
                                                             match command {
-                                                                Command::CoolTo(temp) => {
-                                                                    println!("[Environment] cooling to {}", temp);
+                                                                Command::CoolBy(delta) => {
+                                                                    println!("[Environment] cooling by {} degrees", delta);
 
                                                                     let mut rng = thread_rng();
 
-                                                                    let slope = rng.gen_range(-0.001..0.0); // arbitrarily selected range of slopes
-                                                                    let noise = 0.0; // arbitrary selected range of noise values
-                                                                    let generator = generator::time_dependent::f32_linear(slope, noise, unit);
+                                                                    let slope = rng.gen_range(-delta / 10.0..0.0); // arbitrarily selected range of slopes
+                                                                    let generator = generator::f32_constant(slope, unit);
 
                                                                     attributes.insert(id, old_generator + generator);
                                                                 }
-                                                                Command::HeatTo(temp) => {
-                                                                    println!("[Environment] heating to {}", temp);
+                                                                Command::HeatBy(delta) => {
+                                                                    println!("[Environment] heating by {} degrees", delta);
 
                                                                     let mut rng = thread_rng();
 
-                                                                    let slope = rng.gen_range(0.0..0.001); // arbitrarily selected range of slopes
-                                                                    let noise = 0.0; // arbitrary selected range of noise values
-                                                                    let generator = generator::time_dependent::f32_linear(slope, noise, unit);
+                                                                    let slope = rng.gen_range(0.0..delta / 10.0); // arbitrarily selected range of slopes
+                                                                    let generator = generator::f32_constant(slope, unit);
 
                                                                     attributes.insert(id, old_generator + generator);
                                                                 }

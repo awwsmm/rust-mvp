@@ -32,10 +32,8 @@ pub trait Actuator: Device {
             if let Ok(message) = Message::read(stream) {
                 if message.start_line == "POST /command HTTP/1.1" {
                     // send a Command to this Actuator (Command is in the body)
-                    //     ex: curl 10.12.50.26:5454/command -d '{"name":"HeatTo","value":"25"}'
+                    //     ex: curl 10.12.50.26:5454/command -d '{"name":"HeatBy","value":"25"}'
 
-                    // match message.body.as_ref().map(Command::parse) {
-                    //     Some(Ok(command)) => {
                     let environment = environment.lock().unwrap();
 
                     match environment.as_ref().map(Self::extract_address) {
@@ -61,12 +59,6 @@ pub trait Actuator: Device {
                             Self::handler_failure(self_name.clone(), stream, msg)
                         }
                     }
-                    // }
-                    //     _ => {
-                    //         let msg = format!("cannot parse body as command: {:?}", message.body);
-                    //         Self::handler_failure(self_name.clone(), stream, msg.as_str())
-                    //     }
-                    // }
                 } else {
                     let msg = format!("cannot parse request: {}", message.start_line);
                     Self::handler_failure(self_name.clone(), stream, msg.as_str())

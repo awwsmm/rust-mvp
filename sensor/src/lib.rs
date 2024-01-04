@@ -88,7 +88,7 @@ pub trait Sensor: Device {
             // ping the Environment at regular intervals to get latest data
             // --------------------------------------------------------------------------------
 
-            let sleep_duration = Duration::from_secs(1);
+            let sleep_duration = Duration::from_millis(50);
             let buffer_size = 10;
 
             // Anything which depends on device must be cloned outside of the || lambda below.
