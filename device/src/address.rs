@@ -3,7 +3,7 @@ use std::net::IpAddr;
 
 /// An `Address` contains all the information required to route a `Message` to a `Device`, namely
 /// the `Device`'s IP address and port.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Address {
     ip: IpAddr,
     port: u16,

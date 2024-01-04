@@ -139,6 +139,8 @@ pub trait Device: Sized {
     }
 
     /// Creates a new thread to discover one or more `Device`s on the network in the specified `group`.
+    // coverage: off
+    // this is very difficult to test outside of an integration test
     fn discover<T: Sync + Send + 'static>(
         &self,
         group: &str,
@@ -168,18 +170,25 @@ pub trait Device: Sized {
             }
         })
     }
+    // coverage: on
 
     /// Creates a new thread to discover a single `Device` on the network in the specified `group`.
     ///
     /// Once that single `Device` is discovered, the thread is completed.
+    // coverage: off
+    // difficult to test this outside of an integration test (mdns is required)
     fn discover_once(&self, group: &str, devices: &Arc<Mutex<Option<ServiceInfo>>>, mdns: ServiceDaemon) -> JoinHandle<()> {
         self.discover(group, devices, mdns, Self::save_unique_device, true)
     }
+    // coverage: on
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
+    // coverage: off
+    // difficult to test this outside of an integration test (mdns is required)
     fn discover_continually(&self, group: &str, devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>, mdns: ServiceDaemon) -> JoinHandle<()> {
         self.discover(group, devices, mdns, Self::save_device, false)
     }
+    // coverage: on
 
     /// Saves the `ServiceInfo` of a `Device` found via mDNS into the `map`.
     ///
@@ -214,5 +223,184 @@ pub trait Device: Sized {
         );
 
         let _ = device.insert(info);
+    }
+}
+
+#[cfg(test)]
+mod device_tests {
+    use super::*;
+
+    struct TestDevice {
+        name: Name,
+        id: Id,
+    }
+
+    impl TestDevice {
+        fn new(name: &str, id: &str) -> TestDevice {
+            TestDevice {
+                name: Name::new(name),
+                id: Id::new(id),
+            }
+        }
+    }
+
+    impl Device for TestDevice {
+        fn get_name(&self) -> &Name {
+            &self.name
+        }
+
+        fn get_id(&self) -> &Id {
+            &self.id
+        }
+
+        fn get_model() -> Model {
+            Model::Unsupported
+        }
+
+        fn get_handler(&self) -> Handler {
+            Box::new(|_| ())
+        }
+    }
+
+    #[test]
+    fn test_handler_failure() {
+        let self_name = Name::new("self_name");
+        let mut buffer = Vec::new();
+        let msg = "this is the message";
+
+        TestDevice::handler_failure(self_name, &mut buffer, msg);
+
+        let actual = String::from_utf8(buffer).unwrap();
+        let expected = Message::respond_bad_request().with_body(msg);
+
+        assert_eq!(actual, expected.to_string());
+    }
+
+    // ServiceInfo doesn't implement PartialEq, so we have to compare field-by-field...
+    fn compare_service_info(actual: &ServiceInfo, expected: &ServiceInfo) {
+        assert_eq!(actual.is_addr_auto(), expected.is_addr_auto());
+        assert_eq!(actual.get_type(), expected.get_type());
+        assert_eq!(actual.get_subtype(), expected.get_subtype());
+        assert_eq!(actual.get_fullname(), expected.get_fullname());
+
+        assert_eq!(actual.get_property("name"), expected.get_property("name"));
+        assert_eq!(actual.get_property("id"), expected.get_property("id"));
+        assert_eq!(actual.get_property("model"), expected.get_property("model"));
+
+        assert_eq!(actual.get_hostname(), expected.get_hostname());
+        assert_eq!(actual.get_port(), expected.get_port());
+        assert_eq!(actual.get_addresses(), expected.get_addresses());
+        assert_eq!(actual.get_addresses_v4(), expected.get_addresses_v4());
+        assert_eq!(actual.get_host_ttl(), expected.get_host_ttl());
+        assert_eq!(actual.get_other_ttl(), expected.get_other_ttl());
+        assert_eq!(actual.get_priority(), expected.get_priority());
+        assert_eq!(actual.get_weight(), expected.get_weight());
+    }
+
+    #[test]
+    fn test_get_service_info() {
+        let name = "myName";
+        let id = "myId";
+        let device = TestDevice::new(name, id);
+
+        let ip = IpAddr::from([123, 234, 123, 234]);
+        let port = 10101;
+        let group = "myGroup";
+
+        let actual = device.get_service_info(ip, port, group);
+
+        let mut properties: HashMap<String, String> = HashMap::new();
+        properties.insert("name".into(), name.into());
+        properties.insert("id".into(), id.into());
+        properties.insert("model".into(), "unsupported".into());
+
+        let expected = ServiceInfo::new("myGroup._tcp.local.", "myId.unsupported", "123.234.123.234", ip, port, properties).unwrap();
+
+        compare_service_info(&actual, &expected)
+    }
+
+    #[test]
+    fn test_extract_address() {
+        let name = "myName";
+        let id = "myId";
+        let device = TestDevice::new(name, id);
+
+        let ip = IpAddr::from([123, 234, 123, 234]);
+        let port = 10101;
+        let group = "myGroup";
+
+        let info = device.get_service_info(ip, port, group);
+
+        let actual = TestDevice::extract_address(&info);
+        let expected = Address::new(ip, port);
+
+        assert_eq!(actual, expected);
+    }
+
+    fn create_service_info() -> ServiceInfo {
+        let name = "myName";
+        let id = "myId";
+        let device = TestDevice::new(name, id);
+
+        let ip = IpAddr::from([123, 234, 123, 234]);
+        let port = 10101;
+        let group = "myGroup";
+
+        device.get_service_info(ip, port, group)
+    }
+
+    #[test]
+    fn test_extract_id() {
+        let info = create_service_info();
+        let actual = TestDevice::extract_id(&info);
+        let expected = Some(Id::new("myId"));
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_extract_model() {
+        let info = create_service_info();
+        let actual = TestDevice::extract_model(&info);
+        let expected = Some(Ok(Model::Unsupported));
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_extract_name() {
+        let info = create_service_info();
+        let actual = TestDevice::extract_name(&info);
+        let expected = Some(Name::new("myName"));
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_save_device() {
+        let info = create_service_info();
+        let self_name = String::from("mySelfName");
+        let container = Arc::new(Mutex::new(HashMap::new()));
+
+        TestDevice::save_device(info.clone(), &self_name, &container);
+
+        let id = Id::new("myId");
+        let lock = container.lock().unwrap();
+        let actual = lock.get(&id).unwrap();
+        let expected = &info;
+
+        compare_service_info(actual, expected)
+    }
+
+    #[test]
+    fn test_save_unique_device() {
+        let info = create_service_info();
+        let self_name = String::from("mySelfName");
+        let container = Arc::new(Mutex::new(None));
+
+        TestDevice::save_unique_device(info.clone(), &self_name, &container);
+
+        let lock = container.lock().unwrap();
+        let actual = lock.clone().unwrap();
+        let expected = &info;
+
+        compare_service_info(&actual, expected)
     }
 }
