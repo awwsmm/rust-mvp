@@ -23,21 +23,6 @@ impl Coefficients {
             phase,
         }
     }
-
-    pub fn random() -> Coefficients {
-        let constant = random::<f32>() - 0.5;
-        let slope = random::<f32>() - 0.5;
-        let amplitude = random::<f32>() - 0.5;
-        let period = random::<f32>() - 0.5;
-        let phase = random::<f32>() - 0.5;
-        Coefficients {
-            constant,
-            slope,
-            amplitude,
-            period,
-            phase,
-        }
-    }
 }
 
 pub struct DatumGenerator {
@@ -53,16 +38,6 @@ impl DatumGenerator {
             t0: Utc::now(),
             coefficients,
             noise,
-            unit,
-        }
-    }
-
-    #[allow(dead_code)] // FIXME remove ASAP
-    pub fn random(unit: Unit) -> DatumGenerator {
-        DatumGenerator {
-            t0: Utc::now(),
-            coefficients: Coefficients::random(),
-            noise: random::<f32>() - 0.5,
             unit,
         }
     }
