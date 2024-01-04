@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::Write;
 use std::net::{IpAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -40,14 +41,20 @@ pub trait Device: Sized {
     fn get_handler(&self) -> Handler;
 
     /// Provides a standard way to deal with failures in `get_handler()`.
-    fn handler_failure(self_name: Name, stream: &mut TcpStream, msg: &str) {
+    ///
+    /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
+    /// this is easier to test below. We do not use any `TcpStream`-specific APIs in this method.
+    fn handler_failure(self_name: Name, tcp_stream: &mut impl Write, msg: &str) {
         println!("[{}] {}", self_name, msg);
         let response = Message::respond_bad_request().with_body(msg);
-        response.write(stream)
+        response.write(tcp_stream)
     }
 
-    /// Registers this `Device` with mDNS in the specified group.
-    fn register(&self, ip: IpAddr, port: u16, group: &str, mdns: ServiceDaemon) {
+    /// Returns the `ServiceInfo` for this `Device`, which is used to register it via mDNS.
+    ///
+    /// **Design Decision**: this logic has been extracted from [`register`](Self::register) to make
+    /// it easier to test (no `mdns: ServiceDaemon` is required).
+    fn get_service_info(&self, ip: IpAddr, port: u16, group: &str) -> ServiceInfo {
         let host = ip.to_string();
         let label = self.get_name().to_string();
         let name = format!("{}.{}", self.get_id(), Self::get_model());
@@ -60,12 +67,20 @@ pub trait Device: Sized {
         properties.insert("name".to_string(), self.get_name().to_string());
         properties.insert("model".to_string(), Self::get_model().to_string());
 
-        let my_service = ServiceInfo::new(domain.as_str(), name.as_str(), host.as_str(), ip, port, properties).unwrap();
-
-        mdns.register(my_service).unwrap()
+        ServiceInfo::new(domain.as_str(), name.as_str(), host.as_str(), ip, port, properties).unwrap()
     }
 
+    /// Registers this `Device` with mDNS in the specified group.
+    // coverage: off
+    // it is not possible to test this outside of an integration test which uses mDNS
+    fn register(&self, service_info: ServiceInfo, mdns: ServiceDaemon) {
+        mdns.register(service_info).unwrap()
+    }
+    // coverage: on
+
     /// Creates a `TcpListener` and binds it to the specified `ip` and `port`.
+    // coverage: off
+    // it is not possible to test this without actually binding to the address
     fn bind(&self, address: Address) -> TcpListener {
         let address = address.to_string();
         let name = &self.get_name();
@@ -74,11 +89,15 @@ pub trait Device: Sized {
 
         TcpListener::bind(address).unwrap()
     }
+    // coverage: on
 
     /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually
     /// listen for incoming `TcpStream`s and handle them appropriately.
+    // coverage: off
+    // it is not possible to test this outside of an integration test
     fn respond(&self, ip: IpAddr, port: u16, group: &str, mdns: ServiceDaemon) {
-        self.register(ip, port, group, mdns);
+        let service_info = self.get_service_info(ip, port, group);
+        self.register(service_info, mdns);
         let listener = self.bind(Address::new(ip, port));
 
         for stream in listener.incoming() {
@@ -86,6 +105,7 @@ pub trait Device: Sized {
             (*self.get_handler())(&mut stream);
         }
     }
+    // coverage: on
 
     /// Extracts the `Address` of a `Device` from its `ServiceInfo` found via mDNS.
     fn extract_address(info: &ServiceInfo) -> Address {
@@ -118,10 +138,17 @@ pub trait Device: Sized {
         name.map(|i| Name::new(i.trim_start_matches("name=")))
     }
 
-    /// Creates a new thread to continually discover `Device`s on the network in the specified group.
-    fn discover_continually(&self, group: &str, devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>, mdns: ServiceDaemon) -> JoinHandle<()> {
+    /// Creates a new thread to discover one or more `Device`s on the network in the specified `group`.
+    fn discover<T: Sync + Send + 'static>(
+        &self,
+        group: &str,
+        container: &Arc<Mutex<T>>,
+        mdns: ServiceDaemon,
+        save: fn(ServiceInfo, &String, &Arc<Mutex<T>>),
+        unique: bool,
+    ) -> JoinHandle<()> {
         let group = String::from(group);
-        let mutex = Arc::clone(devices);
+        let mutex = Arc::clone(container);
 
         // Anything which depends on self must be cloned outside of the || lambda.
         // We cannot refer to `self` inside of this lambda.
@@ -133,17 +160,10 @@ pub trait Device: Sized {
 
             while let Ok(event) = receiver.recv() {
                 if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
-                    let id = Self::extract_id(&info);
-                    let devices_lock = mutex.lock();
-                    let mut devices_guard = devices_lock.unwrap();
-
-                    println!(
-                        "[Device::discover_continually] \"{}\" discovered \"{}\"",
-                        self_name,
-                        info.get_property("name").map(|p| p.val_str()).unwrap_or("<unknown>")
-                    );
-
-                    id.map(|i| devices_guard.insert(i, info));
+                    save(info, &self_name, &mutex);
+                    if unique {
+                        break;
+                    }
                 }
             }
         })
@@ -153,32 +173,46 @@ pub trait Device: Sized {
     ///
     /// Once that single `Device` is discovered, the thread is completed.
     fn discover_once(&self, group: &str, devices: &Arc<Mutex<Option<ServiceInfo>>>, mdns: ServiceDaemon) -> JoinHandle<()> {
-        let group = String::from(group);
-        let mutex = Arc::clone(devices);
+        self.discover(group, devices, mdns, Self::save_unique_device, true)
+    }
 
-        // Anything which depends on self must be cloned outside of the || lambda.
-        // We cannot refer to `self` inside of this lambda.
-        let self_name = self.get_name().to_string();
+    /// Creates a new thread to continually discover `Device`s on the network in the specified group.
+    fn discover_continually(&self, group: &str, devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>, mdns: ServiceDaemon) -> JoinHandle<()> {
+        self.discover(group, devices, mdns, Self::save_device, false)
+    }
 
-        std::thread::spawn(move || {
-            let service_type = format!("{}._tcp.local.", group);
-            let receiver = mdns.browse(service_type.as_str()).unwrap();
+    /// Saves the `ServiceInfo` of a `Device` found via mDNS into the `map`.
+    ///
+    /// **Design Decision**: this logic has been extracted from
+    /// [`discover_continually`](Self::discover_continually) to make it easier to test.
+    fn save_device(info: ServiceInfo, self_name: &String, map: &Arc<Mutex<HashMap<Id, ServiceInfo>>>) {
+        let id = Self::extract_id(&info);
+        let devices_lock = map.lock();
+        let mut devices_guard = devices_lock.unwrap();
 
-            while let Ok(event) = receiver.recv() {
-                if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
-                    let devices_lock = mutex.lock();
-                    let mut device = devices_lock.unwrap();
+        println!(
+            "[Device::discover_continually] \"{}\" discovered \"{}\"",
+            self_name,
+            info.get_property("name").map(|p| p.val_str()).unwrap_or("<unknown>")
+        );
 
-                    println!(
-                        "[Device::discover_once] \"{}\" discovered \"{}\"",
-                        self_name,
-                        info.get_property("name").map(|p| p.val_str()).unwrap_or("<unknown>")
-                    );
+        id.map(|i| devices_guard.insert(i, info));
+    }
 
-                    let _ = device.insert(info);
-                    break;
-                }
-            }
-        })
+    /// Saves the `ServiceInfo` of a `Device` found via mDNS into the `container`.
+    ///
+    /// **Design Decision**: this logic has been extracted from
+    /// [`discover_once`](Self::discover_once) to make it easier to test.
+    fn save_unique_device(info: ServiceInfo, self_name: &String, container: &Arc<Mutex<Option<ServiceInfo>>>) {
+        let devices_lock = container.lock();
+        let mut device = devices_lock.unwrap();
+
+        println!(
+            "[Device::discover_once] \"{}\" discovered \"{}\"",
+            self_name,
+            info.get_property("name").map(|p| p.val_str()).unwrap_or("<unknown>")
+        );
+
+        let _ = device.insert(info);
     }
 }
