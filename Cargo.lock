@@ -104,6 +104,7 @@ version = "0.1.0"
 dependencies = [
  "actuator",
  "actuator_temperature",
+ "chrono",
  "datum",
  "device",
  "mdns-sd",
