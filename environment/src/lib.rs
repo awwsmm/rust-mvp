@@ -81,7 +81,7 @@ impl Device for Environment {
                         None => {
                             // if this Sensor ID is unknown, we can still generate data for it if the user has included the 'kind' and 'unit' headers
                             //     ex: curl --header "kind: bool" --header "unit: °C" 10.12.50.26:5454/datum/my_id
-                            match (message.headers.get("kind"), message.headers.get("unit")) {
+                            match (message.header("kind"), message.header("unit")) {
                                 (Some(kind), Some(unit)) => match (Kind::parse(kind), Unit::parse(unit)) {
                                     (Ok(kind), Ok(unit)) => {
                                         let datum = Self::register_new(&mut attributes, &id, kind, unit);
@@ -116,7 +116,7 @@ impl Device for Environment {
 
                     // Tell the Environment to update its State via a Command.
                     //     ex: curl 10.12.50.26:5454/command -d '{"name":"HeatBy","value":"25"}' --header "id: my_id" --header "model: thermo5000"
-                    match (message.headers.get("id"), message.headers.get("model")) {
+                    match (message.header("id"), message.header("model")) {
                         (Some(id), Some(model)) => {
                             match (Id::new(id), Model::parse(model)) {
                                 (id, Ok(model)) => {

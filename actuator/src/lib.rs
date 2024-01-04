@@ -51,7 +51,7 @@ pub trait Actuator: Device {
                             forwarded_command.write(&mut environment);
 
                             // ack request from Controller to close the socket
-                            let ack = Message::ack();
+                            let ack = Message::respond_ok();
                             ack.write(stream)
                         }
                         None => {

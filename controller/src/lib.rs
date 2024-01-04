@@ -182,7 +182,7 @@ impl Controller {
             let actuators = Arc::clone(&device.actuators);
 
             std::thread::spawn(move || {
-                let query = Message::request("GET", "/datum");
+                let query = Message::request_get("/datum");
 
                 loop {
                     {
@@ -229,7 +229,7 @@ impl Controller {
                                                         let actuator = <Self as Device>::extract_address(actuator).to_string();
                                                         println!("[Sensor] connecting to Actuator @ {}", actuator);
                                                         let mut stream = TcpStream::connect(actuator).unwrap();
-                                                        let command = Message::request("POST", "/command").with_body((*command).to_string());
+                                                        let command = Message::request_post("/command").with_body((*command).to_string());
                                                         command.write(&mut stream);
                                                     }
                                                 }

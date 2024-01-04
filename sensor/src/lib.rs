@@ -108,7 +108,7 @@ pub trait Sensor: Device {
                 headers.insert("kind", device_kind.to_string());
                 headers.insert("unit", device_unit.to_string());
 
-                let query = Message::request("GET", url.as_str()).with_headers(headers);
+                let query = Message::request_get(url.as_str()).with_headers(headers);
 
                 loop {
                     {
