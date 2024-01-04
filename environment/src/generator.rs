@@ -4,6 +4,7 @@ use rand::random;
 use datum::unit::Unit;
 use datum::Datum;
 
+/// `Coefficients` are used to calculate the next generated `Datum`.
 // y = a + b*x + c*sin(d(x+e))
 pub struct Coefficients {
     pub constant: f32, // a
@@ -15,6 +16,8 @@ pub struct Coefficients {
 
 impl Coefficients {
     pub fn new(constant: f32, slope: f32, amplitude: f32, period: f32, phase: f32) -> Coefficients {
+        // Since we divide by period, we must account for the user setting it to 0.0
+        let (amplitude, period) = if period == 0.0 { (0.0, 1.0) } else { (amplitude, period) };
         Coefficients {
             constant,
             slope,
@@ -25,6 +28,7 @@ impl Coefficients {
     }
 }
 
+/// A `DatumGenerator` can `generate` a fake `Datum`.
 pub struct DatumGenerator {
     t0: DateTime<Utc>,
     pub coefficients: Coefficients,
@@ -42,6 +46,7 @@ impl DatumGenerator {
         }
     }
 
+    /// Generates a fake `Datum` using this `DatumGenerator`s `t0`, `coefficients`, `noise`, and `unit`.
     pub fn generate(&self) -> Datum {
         let now = Utc::now();
 
@@ -72,7 +77,7 @@ mod generator_tests {
 
     #[test]
     fn test_constant() {
-        let coefficients = Coefficients::new(5.0, 0.0, 0.0, 1.0, 0.0);
+        let coefficients = Coefficients::new(5.0, 0.0, 0.0, 0.0, 0.0);
         let noise = 0.0;
         let generator = DatumGenerator::new(coefficients, noise, Unit::DegreesC);
 
@@ -89,9 +94,9 @@ mod generator_tests {
     }
 
     #[test]
-    /// Slope is positive -- tests that a value generated earlier is less than a value generated later
+    // Slope is positive -- tests that a value generated earlier is less than a value generated later
     fn test_linear_positive_slope() {
-        let coefficients = Coefficients::new(0.0, 1.0, 0.0, 1.0, 0.0);
+        let coefficients = Coefficients::new(0.0, 1.0, 0.0, 0.0, 0.0);
         let noise = 0.0;
         let generator = DatumGenerator::new(coefficients, noise, Unit::DegreesC);
 
@@ -105,9 +110,9 @@ mod generator_tests {
     }
 
     #[test]
-    /// Slope is negative -- tests that a value generated earlier is greater than a value generated later
+    // Slope is negative -- tests that a value generated earlier is greater than a value generated later
     fn test_linear_negative_slope() {
-        let coefficients = Coefficients::new(0.0, -1.0, 0.0, 1.0, 0.0);
+        let coefficients = Coefficients::new(0.0, -1.0, 0.0, 0.0, 0.0);
         let noise = 0.0;
         let generator = DatumGenerator::new(coefficients, noise, Unit::DegreesC);
 
