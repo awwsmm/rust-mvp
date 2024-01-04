@@ -89,66 +89,7 @@ impl Device for Controller {
                     let response = Message::respond_ok().with_body(body);
                     response.write(stream)
                 } else if message.start_line == "GET /ui HTTP/1.1" {
-                    let plotly = std::fs::read_to_string("./controller/resources/plotly-2.27.0.min.js").unwrap();
-                    let html = r##"
-<html>
-<head>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-<script>
-window.addEventListener('load', function() {
-
-    const graphDiv = document.getElementById('graph')
-
-    const url = "http://192.168.2.16:6565/data";
-    const myrequest = new XMLHttpRequest();
-    myrequest.open("GET", url, true);
-
-    myrequest.onload = (function() {
-        if (this.status == 200) {
-
-            // only one sensor right now, so [0] to get the first one
-            const data = JSON.parse(myrequest.responseText)[0];
-
-            Plotly.newPlot(graphDiv, [{
-                x: data["data"].map(datum => datum["timestamp"]),
-                y: data["data"].map(datum => datum["value"]) }], {
-            margin: { t: 0 } } );
-        }
-    });
-
-    myrequest.send();
-
-    var interval = setInterval(function() {
-
-        const url = "http://192.168.2.16:6565/datum";
-        const myrequest = new XMLHttpRequest();
-        myrequest.open("GET", url, true);
-
-        myrequest.onload = (function() {
-            if (this.status == 200) {
-
-                // only one sensor right now, so [0] to get the first one
-                const datum = JSON.parse(myrequest.responseText)[0];
-
-                Plotly.extendTraces(graphDiv, {
-                    x: [datum["datum"].map(datum => datum["timestamp"])],
-                    y: [datum["datum"].map(datum => datum["value"])]
-                }, [0], 500)
-            }
-        });
-
-        myrequest.send();
-
-    }, 50);
-
-});
-</script>
-<body>
-<div id="graph"></div>
-</body>
-</html>
-                    "##
-                    .replace("PLACEHOLDER", plotly.as_str());
+                    let html = std::fs::read_to_string("./controller/resources/index.html").unwrap();
 
                     let mut headers = HashMap::new();
                     headers.insert("Content-Type", "text/html; charset=utf-8");
