@@ -1,6 +1,8 @@
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 
+/// An `Address` contains all the information required to route a `Message` to a `Device`, namely
+/// the `Device`'s IP address and port.
 #[derive(Clone, Copy)]
 pub struct Address {
     ip: IpAddr,

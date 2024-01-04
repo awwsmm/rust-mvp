@@ -17,6 +17,12 @@ pub enum Model {
 }
 
 /// Allows `Model`s to be converted to `String`s with `to_string()`.
+///
+/// **Design Decision**: the serialized form of a `Model` is used in its mDNS instance name (e.g.
+/// `instance._modelName._groupName._tcp.local.`. While this path is allowed to contain
+/// ["any Unicode characters"](https://www.oreilly.com/library/view/zero-configuration-networking/0596101007/ch04.html#IDX-CHP-4-0125),
+/// we have opted to keep them short, and without spaces, to avoid any possible issues with command-line
+/// argument splitting, etc.
 impl Display for Model {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let str = match self {

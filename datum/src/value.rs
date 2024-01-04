@@ -17,6 +17,9 @@ pub enum Value {
 }
 
 /// Allows `Value`s to be converted to `String`s with `to_string()`.
+///
+/// **Design Decision**: we force serialized floating-point values to end with `.0` to distinguish
+/// them from integer values. Otherwise, on deserialization, the type of the value is ambiguous.
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let string = match self {

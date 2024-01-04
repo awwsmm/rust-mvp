@@ -1,8 +1,10 @@
 use std::fmt::{Display, Formatter};
 
+/// `Id` is a unique, immutable identifier associated with a `Device`.
 #[derive(PartialEq, Debug, Clone, Eq, Hash)]
 pub struct Id(String);
 
+/// Allows `Id`s to be converted to `String`s with `to_string()`.
 impl Display for Id {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)

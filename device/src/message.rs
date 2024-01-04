@@ -120,7 +120,7 @@ impl Message {
     }
 
     /// Attempts to read a `Message` from a `BufRead` (usually a `TcpStream`).
-    pub fn read_from_buffer(mut reader: impl BufRead) -> Result<Message, String> {
+    fn read_from_buffer(mut reader: impl BufRead) -> Result<Message, String> {
         let mut message = String::new();
         reader.read_line(&mut message).map_err(|_| String::from("cannot read message"))?;
 

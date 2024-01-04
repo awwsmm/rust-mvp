@@ -1,8 +1,12 @@
 use std::fmt::{Display, Formatter};
 
+/// `Name` is the user-defined name for a `Device`.
+///
+/// It is mutable, and is distinct from the immutable, unique `Id` associated with a `Device`.
 #[derive(PartialEq, Debug, Clone)]
 pub struct Name(String);
 
+/// Allows `Name`s to be converted to `String`s with `to_string()`.
 impl Display for Name {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
