@@ -50,6 +50,8 @@ pub trait Actuator: Device {
     ///
     /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
     /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
+    // coverage: off
+    // cannot be tested in a unit test because of `TcpStream::connect`
     fn handle_post_command(
         stream: &mut impl Write,
         environment: &Arc<Mutex<Option<ServiceInfo>>>,
@@ -87,6 +89,7 @@ pub trait Actuator: Device {
             }
         }
     }
+    // coverage: on
 
     // coverage: off
     // this is very difficult to test outside of an integration test
