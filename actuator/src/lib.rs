@@ -20,8 +20,6 @@ pub trait Actuator: Device {
     fn get_environment(&self) -> &Arc<Mutex<Option<ServiceInfo>>>;
 
     /// By default, an `Actuator` forwards all incoming requests to the `Environment`.
-    // coverage: off
-    // routing can be verified by inspection
     fn default_handler(&self) -> Handler {
         // Anything which depends on self must be cloned outside of the |stream| lambda.
         // We cannot refer to `self` inside of this lambda.
@@ -44,14 +42,11 @@ pub trait Actuator: Device {
             }
         })
     }
-    // coverage: on
 
     /// Describes how `POST /command` requests are handled by `Actuator`s.
     ///
     /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
     /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
-    // coverage: off
-    // cannot be tested in a unit test because of `TcpStream::connect`
     fn handle_post_command(
         stream: &mut impl Write,
         environment: &Arc<Mutex<Option<ServiceInfo>>>,
@@ -89,10 +84,7 @@ pub trait Actuator: Device {
             }
         }
     }
-    // coverage: on
 
-    // coverage: off
-    // this is very difficult to test outside of an integration test
     fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             let device = Self::new(id, name);
@@ -104,7 +96,6 @@ pub trait Actuator: Device {
             device.respond(ip, port, group.as_str(), mdns)
         })
     }
-    // coverage: on
 }
 
 pub trait Command: Display {}

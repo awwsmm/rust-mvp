@@ -9,5 +9,6 @@ members = [
     "sensor",
     "sensor_temperature",
     "actuator",
-    "actuator_temperature"
+    "actuator_temperature",
+    "tests"
 ]

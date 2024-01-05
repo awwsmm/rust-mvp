@@ -1,0 +1,18 @@
+[package]
+name = "tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+actuator = { path = "../actuator" }
+controller = { path = "../controller" }
+device = { path = "../device" }
+environment = { path = "../environment" }
+sensor = { path = "../sensor" }
+sensor_temperature = { path = "../sensor_temperature" }
+actuator_temperature = { path = "../actuator_temperature" }
+
+local-ip-address = "0.5.6"
+mdns-sd = "0.10.1"
+uuid = {version = "1.6.1", features = ["v4"]}

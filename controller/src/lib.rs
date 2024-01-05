@@ -48,8 +48,6 @@ impl Device for Controller {
         Model::Controller
     }
 
-    // coverage: off
-    // routing can be verified by inspection
     fn get_handler(&self) -> Handler {
         // Anything which depends on self must be cloned outside of the |stream| lambda.
         // We cannot refer to `self` inside of this lambda.
@@ -73,7 +71,6 @@ impl Device for Controller {
             }
         })
     }
-    // coverage: on
 }
 
 impl Controller {
@@ -148,8 +145,6 @@ impl Controller {
         response.write(tcp_stream)
     }
 
-    // coverage: off
-    // this is very difficult to test outside of an integration test
     pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             // --------------------------------------------------------------------------------
@@ -254,7 +249,6 @@ impl Controller {
             device.respond(ip, port, group.as_str(), mdns)
         })
     }
-    // coverage: on
 }
 
 #[cfg(test)]

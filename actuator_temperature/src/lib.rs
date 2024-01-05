@@ -30,12 +30,9 @@ impl Device for TemperatureActuator {
         Model::Thermo5000
     }
 
-    // coverage: off
-    // very difficult to test, verify by inspection instead
     fn get_handler(&self) -> Handler {
         self.default_handler()
     }
-    // coverage: on
 }
 
 impl Actuator for TemperatureActuator {

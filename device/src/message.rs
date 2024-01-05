@@ -148,12 +148,9 @@ impl Message {
     }
 
     /// Attempts to read a `Message` from the provided `tcp_stream`.
-    // coverage: off
-    // cannot test this without constructing a TcpStream
     pub fn read(mut tcp_stream: &mut TcpStream) -> Result<Message, String> {
         Message::read_from_buffer(BufReader::new(&mut tcp_stream))
     }
-    // coverage: on
 
     /// Attempts to read a `Message` from a `BufRead` (usually a `TcpStream`).
     ///

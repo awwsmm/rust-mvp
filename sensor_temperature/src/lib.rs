@@ -34,12 +34,9 @@ impl Device for TemperatureSensor {
         Model::Thermo5000
     }
 
-    // coverage: off
-    // very difficult to test, verify by inspection instead
     fn get_handler(&self) -> Handler {
         self.default_handler()
     }
-    // coverage: on
 }
 
 impl Sensor for TemperatureSensor {

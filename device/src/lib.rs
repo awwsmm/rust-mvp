@@ -71,16 +71,11 @@ pub trait Device: Sized {
     }
 
     /// Registers this `Device` with mDNS in the specified group.
-    // coverage: off
-    // it is not possible to test this outside of an integration test which uses mDNS
     fn register(&self, service_info: ServiceInfo, mdns: ServiceDaemon) {
         mdns.register(service_info).unwrap()
     }
-    // coverage: on
 
     /// Creates a `TcpListener` and binds it to the specified `ip` and `port`.
-    // coverage: off
-    // it is not possible to test this without actually binding to the address
     fn bind(&self, address: Address) -> TcpListener {
         let address = address.to_string();
         let name = &self.get_name();
@@ -89,12 +84,9 @@ pub trait Device: Sized {
 
         TcpListener::bind(address).unwrap()
     }
-    // coverage: on
 
     /// `register`s and `bind`s this `Device`, then spawns a new thread where it will continually
     /// listen for incoming `TcpStream`s and handle them appropriately.
-    // coverage: off
-    // it is not possible to test this outside of an integration test
     fn respond(&self, ip: IpAddr, port: u16, group: &str, mdns: ServiceDaemon) {
         let service_info = self.get_service_info(ip, port, group);
         self.register(service_info, mdns);
@@ -105,7 +97,6 @@ pub trait Device: Sized {
             (*self.get_handler())(&mut stream);
         }
     }
-    // coverage: on
 
     /// Extracts the `Address` of a `Device` from its `ServiceInfo` found via mDNS.
     fn extract_address(info: &ServiceInfo) -> Address {
@@ -139,8 +130,6 @@ pub trait Device: Sized {
     }
 
     /// Creates a new thread to discover one or more `Device`s on the network in the specified `group`.
-    // coverage: off
-    // this is very difficult to test outside of an integration test
     fn discover<T: Sync + Send + 'static>(
         &self,
         group: &str,
@@ -170,25 +159,18 @@ pub trait Device: Sized {
             }
         })
     }
-    // coverage: on
 
     /// Creates a new thread to discover a single `Device` on the network in the specified `group`.
     ///
     /// Once that single `Device` is discovered, the thread is completed.
-    // coverage: off
-    // difficult to test this outside of an integration test (mdns is required)
     fn discover_once(&self, group: &str, devices: &Arc<Mutex<Option<ServiceInfo>>>, mdns: ServiceDaemon) -> JoinHandle<()> {
         self.discover(group, devices, mdns, Self::save_unique_device, true)
     }
-    // coverage: on
 
     /// Creates a new thread to continually discover `Device`s on the network in the specified group.
-    // coverage: off
-    // difficult to test this outside of an integration test (mdns is required)
     fn discover_continually(&self, group: &str, devices: &Arc<Mutex<HashMap<Id, ServiceInfo>>>, mdns: ServiceDaemon) -> JoinHandle<()> {
         self.discover(group, devices, mdns, Self::save_device, false)
     }
-    // coverage: on
 
     /// Saves the `ServiceInfo` of a `Device` found via mDNS into the `map`.
     ///

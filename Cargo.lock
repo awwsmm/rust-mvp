@@ -551,6 +551,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tests"
+version = "0.1.0"
+dependencies = [
+ "actuator",
+ "actuator_temperature",
+ "controller",
+ "device",
+ "environment",
+ "local-ip-address",
+ "mdns-sd",
+ "sensor",
+ "sensor_temperature",
+ "uuid",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"

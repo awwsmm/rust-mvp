@@ -42,8 +42,6 @@ impl Device for Environment {
         Model::Environment
     }
 
-    // coverage: off
-    // routing can be verified by inspection
     fn get_handler(&self) -> Handler {
         // Anything which depends on self must be cloned outside of the |stream| lambda.
         // We cannot refer to `self` inside of this lambda.
@@ -65,7 +63,6 @@ impl Device for Environment {
             }
         })
     }
-    // coverage: on
 }
 
 impl Environment {
@@ -226,8 +223,6 @@ impl Environment {
         }
     }
 
-    // coverage: off
-    // this is very difficult to test outside of an integration test
     pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             let device = Self::new(id, name);
@@ -237,7 +232,6 @@ impl Environment {
             device.respond(ip, port, group.as_str(), mdns)
         })
     }
-    // coverage: on
 }
 
 #[cfg(test)]

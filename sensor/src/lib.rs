@@ -30,8 +30,6 @@ pub trait Sensor: Device {
     fn get_data(&self) -> &Arc<Mutex<VecDeque<Datum>>>;
 
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
-    // coverage: off
-    // routing can be verified by inspection
     fn default_handler(&self) -> Handler {
         let self_name = self.get_name().clone();
 
@@ -54,7 +52,6 @@ pub trait Sensor: Device {
             }
         })
     }
-    // coverage: on
 
     /// Describes how `GET /data` requests are handled by `Sensor`s.
     ///
@@ -89,8 +86,6 @@ pub trait Sensor: Device {
         response.write(tcp_stream)
     }
 
-    // coverage: off
-    // this is very difficult to test outside of an integration test
     fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             // --------------------------------------------------------------------------------
@@ -169,7 +164,6 @@ pub trait Sensor: Device {
             device.respond(ip, port, group.as_str(), mdns)
         })
     }
-    // coverage: on
 }
 
 #[cfg(test)]
