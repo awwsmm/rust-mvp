@@ -35,7 +35,15 @@ fn test_demo() {
     // spin up the controller and the environment
     // --------------------------------------------------------------------------------
 
-    Controller::start(ip, 6565, Id::new("controller"), Name::new("Controller"), String::from("_controller"));
+    let container_mode = false;
+    Controller::start(
+        ip,
+        6565,
+        Id::new("controller"),
+        Name::new("Controller"),
+        String::from("_controller"),
+        container_mode,
+    );
 
     let environment_port = 5454;
     Environment::start(

@@ -9,6 +9,7 @@ use log::{debug, error};
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use datum::Datum;
+use device::address::Address;
 use device::id::Id;
 use device::message::Message;
 use device::model::Model;
@@ -30,6 +31,8 @@ mod assessor;
 pub struct Controller {
     name: Name,
     id: Id,
+    address: Address,
+    container_mode: bool,
     sensors: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
     actuators: Arc<Mutex<HashMap<Id, ServiceInfo>>>,
     assessors: Arc<Mutex<HashMap<Id, Assessor>>>,
@@ -54,6 +57,8 @@ impl Device for Controller {
         // We cannot refer to `self` inside of this lambda.
         let self_name = self.get_name().clone();
         let self_data = Arc::clone(&self.data);
+        let self_address = self.address.to_string();
+        let local_mode = self.container_mode;
 
         Box::new(move |stream| {
             if let Ok(message) = Message::read(stream) {
@@ -62,7 +67,7 @@ impl Device for Controller {
                 } else if message.start_line == "GET /datum HTTP/1.1" {
                     Self::handle_get_datum(stream, &self_data)
                 } else if message.start_line == "GET /ui HTTP/1.1" {
-                    Self::handle_get_ui(stream)
+                    Self::handle_get_ui(stream, local_mode, self_address.clone())
                 } else {
                     let msg = format!("cannot parse request: {}", message.start_line);
                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
@@ -75,10 +80,12 @@ impl Device for Controller {
 }
 
 impl Controller {
-    fn new(id: Id, name: Name) -> Self {
+    fn new(id: Id, name: Name, address: Address, container_mode: bool) -> Self {
         Self {
             name,
             id,
+            address,
+            container_mode,
             sensors: Arc::new(Mutex::new(HashMap::new())),
             actuators: Arc::new(Mutex::new(HashMap::new())),
             assessors: Arc::new(Mutex::new(HashMap::new())),
@@ -135,8 +142,14 @@ impl Controller {
     ///
     /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
     /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
-    fn handle_get_ui(tcp_stream: &mut impl Write) {
+    fn handle_get_ui(tcp_stream: &mut impl Write, container_mode: bool, self_address: String) {
         let html = include_str!("index.html");
+
+        let html = if container_mode {
+            html.replace("192.168.2.16:6565", "localhost:6565")
+        } else {
+            html.replace("192.168.2.16:6565", self_address.as_str())
+        };
 
         let mut headers = HashMap::new();
         headers.insert("Content-Type", "text/html; charset=utf-8");
@@ -146,13 +159,13 @@ impl Controller {
         response.write(tcp_stream)
     }
 
-    pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
+    pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String, container_mode: bool) -> JoinHandle<()> {
         std::thread::spawn(move || {
             // --------------------------------------------------------------------------------
             // create Device and discover required Message targets
             // --------------------------------------------------------------------------------
 
-            let device = Self::new(id, name);
+            let device = Self::new(id, name, Address::new(ip, port), container_mode);
 
             let mut targets = HashMap::new();
             targets.insert("_sensor", Arc::clone(&device.sensors));
@@ -264,7 +277,9 @@ mod controller_tests {
     #[test]
     fn test_get_name() {
         let expected = Name::new("myName");
-        let controller = Controller::new(Id::new("myId"), expected.clone());
+        let address = Address::new(IpAddr::from([0, 0, 0, 0]), 10101);
+        let container_mode = false;
+        let controller = Controller::new(Id::new("myId"), expected.clone(), address, container_mode);
         let actual = controller.get_name();
         let expected = &expected;
         assert_eq!(actual, expected);
@@ -273,7 +288,9 @@ mod controller_tests {
     #[test]
     fn test_get_id() {
         let expected = Id::new("myId");
-        let controller = Controller::new(expected.clone(), Name::new("myName"));
+        let address = Address::new(IpAddr::from([0, 0, 0, 0]), 10101);
+        let container_mode = false;
+        let controller = Controller::new(expected.clone(), Name::new("myName"), address, container_mode);
         let actual = controller.get_id();
         let expected = &expected;
         assert_eq!(actual, expected);
@@ -364,13 +381,23 @@ mod controller_tests {
     fn test_handle_get_ui() {
         let mut buffer = Vec::new();
 
-        Controller::handle_get_ui(&mut buffer);
+        let address = String::from("1.2.3.4:5678");
+        let container_mode = false;
+
+        Controller::handle_get_ui(&mut buffer, container_mode, address.clone());
 
         let actual = String::from_utf8(buffer).unwrap();
 
-        let html = include_str!("index.html");
+        let html = include_str!("index.html").replace("192.168.2.16:6565", address.as_str());
 
-        let expected = ["HTTP/1.1 200 OK", "Content-Length: 1847", "Content-Type: text/html; charset=utf-8", "", html].join("\r\n");
+        let expected = [
+            "HTTP/1.1 200 OK",
+            "Content-Length: 1837",
+            "Content-Type: text/html; charset=utf-8",
+            "",
+            html.as_str(),
+        ]
+        .join("\r\n");
 
         assert_eq!(actual, format!("{}\r\n\r\n", expected))
     }

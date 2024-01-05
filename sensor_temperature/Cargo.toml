@@ -10,4 +10,5 @@ datum = { path = "../datum" }
 device = { path = "../device" }
 sensor = { path = "../sensor" }
 
+local-ip-address = "0.5.6"
 mdns-sd = "0.10.1"

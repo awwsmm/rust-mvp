@@ -19,6 +19,7 @@ dependencies = [
  "actuator",
  "datum",
  "device",
+ "local-ip-address",
  "mdns-sd",
 ]
 
@@ -123,6 +124,7 @@ dependencies = [
  "chrono",
  "datum",
  "device",
+ "local-ip-address",
  "log",
  "mdns-sd",
  "phf",
@@ -206,6 +208,7 @@ dependencies = [
  "chrono",
  "datum",
  "device",
+ "local-ip-address",
  "log",
  "mdns-sd",
  "rand",
@@ -601,6 +604,7 @@ version = "0.1.0"
 dependencies = [
  "datum",
  "device",
+ "local-ip-address",
  "mdns-sd",
  "sensor",
 ]

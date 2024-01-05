@@ -14,6 +14,7 @@ use sensor_temperature::TemperatureSensor;
 fn main() {
     // in the local demo, all devices have the same ip (localhost)
     let ip = local_ip_address::local_ip().unwrap();
+
     let controller_port = 6565;
 
     // required to parse log level info from
@@ -41,7 +42,15 @@ fn main() {
     // spin up the controller
     // --------------------------------------------------------------------------------
 
-    Controller::start(ip, controller_port, Id::new("controller"), Name::new("Controller"), String::from("_controller"));
+    let container_mode = false;
+    Controller::start(
+        ip,
+        controller_port,
+        Id::new("controller"),
+        Name::new("Controller"),
+        String::from("_controller"),
+        container_mode,
+    );
 
     // --------------------------------------------------------------------------------
     // spin up the environment

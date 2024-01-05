@@ -4,19 +4,69 @@ This Rust IoT project began its life as a 5-day MVP with a team of 3 developers.
 
 This fork takes that initial work and builds on it significantly.
 
-## running
+## running locally
 
-Run the demo with
+Run the local demo with
 
-```rs
-cargo run
+```shell
+cargo run --bin demo
 ```
 
 Run the demo with STDOUT logs (at "error", "warn", "info", "debug", or "trace" level)
 
-```rs
-RUST_LOG=info cargo run
+```shell
+RUST_LOG=info cargo run --bin demo
 ```
+
+## running in Docker
+
+Create the required Docker container images with
+
+```shell
+docker build -t environment -f environment.Dockerfile . &&
+docker build -t actuator_temperature -f actuator_temperature.Dockerfile . &&
+docker build -t sensor_temperature -f sensor_temperature.Dockerfile . &&
+docker build -t controller -f controller.Dockerfile .
+```
+
+...and run the containers with
+
+```shell
+docker run -d -p 5454:5454 environment &&
+docker run -d -p 9898:9898 actuator_temperature &&
+docker run -d -p 8787:8787 sensor_temperature &&
+docker run -d -p 6565:6565 controller
+```
+
+Then, test it out! Ask the environment for a Datum with...
+
+```shell
+curl localhost:5454/datum/example-id --header "kind: float" --header "unit: °C"
+# {"value":"0.21278754","unit":"°C","timestamp":"2024-01-05T16:07:33.108909834+00:00"}
+```
+
+...or send a command to an actuator with...
+
+```shell
+curl -v localhost:9898/command -d '{"name":"HeatBy","value":"25"}'
+# HTTP/1.1 200 OK
+```
+
+...or query a sensor for its latest Datum with...
+
+```shell
+curl localhost:8787/datum
+# [{"value":"-1.8094378","unit":"°C","timestamp":"2024-01-05T17:05:30.272467221+00:00"}]
+```
+
+...or get the latest Datum from _every_ sensor by querying the environment
+
+```shell
+curl localhost:6565/datum
+# [{"id":"thermo-5000","datum":[{"value":"28.747364","unit":"°C","timestamp":"2024-01-05T17:14:39.963327462+00:00"}]}]
+```
+
+Don't forget to check out the Web UI at http://localhost:6565/ui, as well.
 
 ## dependencies
 
@@ -37,7 +87,7 @@ This Cargo workspace project contains a few crates. Each crate has a simple name
 
 ### sensor
 
-This is a library crate (no `main.rs` file) which defines the basic library interface and the communication layer for an IoT _sensor_ running as a standalone device (at its own IP address). It is possible in this demo to define multiple sensors.
+This is a library crate (no `main.rs` file) which defines the basic interface and the communication layer for an IoT _sensor_ running as a standalone device (at its own IP address). It is possible in this demo to define multiple sensors.
 
 A sensor gathers information from the [environment](#environment) and provides it to the [controller](#controller) when requested.
 
@@ -45,9 +95,9 @@ Concrete (demo) implementations of sensors are held in directories with names st
 
 ### actuator
 
-This is another library crate (no `main.rs` file) which defines the basic library interface and the communication layer for an IoT _actuator_ running as a standalone device (at its own IP address). It is possible in this demo to define multiple actuators. In this demo, each sensor is paired with exactly one actuator.
+This is another library crate which defines the basic interface and the communication layer for an IoT _actuator_ running as a standalone device. It is possible in this demo to define multiple actuators. In this demo, each sensor is paired with exactly one actuator.
 
-An actuator receives commands from the [controller](#controller) and has an effect on the [environment](#environment).
+An actuator receives commands from the [controller](#controller) and can affect the [environment](#environment).
 
 Concrete (demo) implementations of actuators are held in directories with names starting with `actuator_`. Those crates are binary crates which can be containerized and run on a container runtime like Docker.
 

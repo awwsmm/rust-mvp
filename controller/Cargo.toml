@@ -14,6 +14,7 @@ sensor = { path = "../sensor" }
 sensor_temperature = { path = "../sensor_temperature" }
 
 chrono = { version = "0.4.31", features = [] }
+local-ip-address = "0.5.6"
 log = "0.4.20"
 mdns-sd = "0.10.1"
 uuid = {version = "1.6.1", features = ["v4"]}
