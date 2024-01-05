@@ -1,4 +1,5 @@
 use std::collections::{HashMap, VecDeque};
+use std::io::Write;
 use std::net::{IpAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -29,6 +30,8 @@ pub trait Sensor: Device {
     fn get_data(&self) -> &Arc<Mutex<VecDeque<Datum>>>;
 
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
+    // coverage: off
+    // routing can be verified by inspection
     fn default_handler(&self) -> Handler {
         let self_name = self.get_name().clone();
 
@@ -39,28 +42,9 @@ pub trait Sensor: Device {
         Box::new(move |stream| {
             if let Ok(message) = Message::read(stream) {
                 if message.start_line == "GET /data HTTP/1.1" {
-                    // get all of the data in this Sensor's buffer
-                    //     ex: curl 10.12.50.26:5454/data
-
-                    let data = self_data.lock().unwrap();
-                    let data: Vec<String> = data.iter().map(|d| d.to_string()).collect();
-                    let data = data.join("\r\n");
-
-                    let response = Message::respond_ok().with_body(data);
-                    response.write(stream)
+                    Self::handle_get_data(stream, &self_data)
                 } else if message.start_line == "GET /datum HTTP/1.1" {
-                    // get the latest Datum from this Sensor's buffer
-                    //     ex: curl 10.12.50.26:5454/datum
-
-                    let data = self_data.lock().unwrap();
-                    let datum = data.iter().next().map(|d| d.to_string());
-
-                    let response = match datum {
-                        None => Message::respond_not_found().with_body("no data"),
-                        Some(datum) => Message::respond_ok().with_body(datum),
-                    };
-
-                    response.write(stream)
+                    Self::handle_get_datum(stream, &self_data)
                 } else {
                     let msg = format!("cannot parse request: {}", message.start_line);
                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
@@ -71,6 +55,43 @@ pub trait Sensor: Device {
         })
     }
 
+    /// Describes how `GET /data` requests are handled by `Sensor`s.
+    ///
+    /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
+    /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
+    fn handle_get_data(tcp_stream: &mut impl Write, data: &Arc<Mutex<VecDeque<Datum>>>) {
+        // get all of the data in this Sensor's buffer
+        //     ex: curl 10.12.50.26:5454/data
+
+        let data = data.lock().unwrap();
+        let data: Vec<String> = data.iter().map(|d| d.to_string()).collect();
+        let data = data.join("\r\n");
+
+        let response = Message::respond_ok().with_body(data);
+        response.write(tcp_stream)
+    }
+
+    /// Describes how `GET /datum` requests are handled by `Sensor`s.
+    ///
+    /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
+    /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
+    fn handle_get_datum(tcp_stream: &mut impl Write, data: &Arc<Mutex<VecDeque<Datum>>>) {
+        // get the latest Datum from this Sensor's buffer
+        //     ex: curl 10.12.50.26:5454/datum
+
+        let data = data.lock().unwrap();
+        let datum = data.iter().next().map(|d| d.to_string());
+
+        let response = match datum {
+            None => Message::respond_not_found().with_body("no data"),
+            Some(datum) => Message::respond_ok().with_body(datum),
+        };
+
+        response.write(tcp_stream)
+    }
+
+    // coverage: off
+    // this is very difficult to test outside of an integration test
     fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             // --------------------------------------------------------------------------------
@@ -149,4 +170,5 @@ pub trait Sensor: Device {
             device.respond(ip, port, group.as_str(), mdns)
         })
     }
+    // coverage: on
 }

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::Write;
 use std::net::IpAddr;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
 use mdns_sd::ServiceDaemon;
@@ -77,34 +77,6 @@ impl Environment {
         }
     }
 
-    fn register_new(attributes: &mut MutexGuard<HashMap<Id, DatumGenerator>>, id: &Id, kind: Kind, unit: Unit) -> Datum {
-        match attributes.get_mut(id) {
-            Some(generator) => generator.generate(),
-            None => {
-                // we need to return the type (bool, f32, i32) of data the Sensor expects
-                let generator = match kind {
-                    Kind::Bool => {
-                        unimplemented!()
-                    }
-                    Kind::Int => {
-                        unimplemented!()
-                    }
-                    Kind::Float => {
-                        let coefficients = Coefficients::new(0.0, 0.0, 5.0, 10000.0, 0.0);
-                        let noise = 0.5;
-                        DatumGenerator::new(coefficients, noise, unit)
-                    }
-                };
-
-                // register this Datum generator to this Id
-                attributes.insert(id.clone(), generator);
-
-                // generate a random value
-                attributes.get_mut(id).unwrap().generate()
-            }
-        }
-    }
-
     /// Describes how `GET /datum/` requests are handled by the `Environment`.
     ///
     /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
@@ -137,7 +109,32 @@ impl Environment {
                 match (message.header("kind"), message.header("unit")) {
                     (Some(kind), Some(unit)) => match (Kind::parse(kind), Unit::parse(unit)) {
                         (Ok(kind), Ok(unit)) => {
-                            let datum = Self::register_new(&mut attributes, &id, kind, unit);
+                            let datum = match attributes.get_mut(&id) {
+                                Some(generator) => generator.generate(),
+                                None => {
+                                    // we need to return the type (bool, f32, i32) of data the Sensor expects
+                                    let generator = match kind {
+                                        Kind::Bool => {
+                                            unimplemented!()
+                                        }
+                                        Kind::Int => {
+                                            unimplemented!()
+                                        }
+                                        Kind::Float => {
+                                            let coefficients = Coefficients::new(0.0, 0.0, 5.0, 10000.0, 0.0);
+                                            let noise = 0.5;
+                                            DatumGenerator::new(coefficients, noise, unit)
+                                        }
+                                    };
+
+                                    // register this Datum generator to this Id
+                                    attributes.insert(id.clone(), generator);
+
+                                    // generate a random value
+                                    attributes.get_mut(&id).unwrap().generate()
+                                }
+                            };
+
                             success(tcp_stream, datum);
                         }
                         _ => {
