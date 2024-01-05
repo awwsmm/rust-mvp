@@ -8,5 +8,6 @@ edition = "2021"
 [dependencies]
 device = { path = "../device" }
 
-uuid = { version = "1.6.1", features = ["v4"] }
+log = "0.4.20"
 mdns-sd = "0.10.1"
+uuid = { version = "1.6.1", features = ["v4"] }

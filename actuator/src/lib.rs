@@ -5,6 +5,7 @@ use std::net::{IpAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
+use log::debug;
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use device::id::Id;
@@ -62,7 +63,7 @@ pub trait Actuator: Device {
 
         match environment.as_ref().map(Self::extract_address) {
             Some(address) => {
-                println!("[Actuator] forwarding body {:?} as-is to environment @ {}", message.body, address);
+                debug!("[Actuator] forwarding body {:?} as-is to environment @ {}", message.body, address);
 
                 let mut environment = TcpStream::connect(address.to_string()).unwrap();
 

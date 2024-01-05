@@ -14,6 +14,14 @@ use sensor_temperature::TemperatureSensor;
 fn main() {
     // in the local demo, all devices have the same ip (localhost)
     let ip = local_ip_address::local_ip().unwrap();
+    let controller_port = 6565;
+
+    // required to parse log level info from
+    //     RUST_LOG=info cargo run
+    env_logger::init();
+
+    println!("\nRust MVP is running...");
+    println!("See the Web UI at http://{}:{}/ui", ip, controller_port);
 
     // --------------------------------------------------------------------------------
     // spin up a sensor-actuator pair
@@ -33,7 +41,7 @@ fn main() {
     // spin up the controller
     // --------------------------------------------------------------------------------
 
-    Controller::start(ip, 6565, Id::new("controller"), Name::new("Controller"), String::from("_controller"));
+    Controller::start(ip, controller_port, Id::new("controller"), Name::new("Controller"), String::from("_controller"));
 
     // --------------------------------------------------------------------------------
     // spin up the environment

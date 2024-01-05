@@ -4,6 +4,7 @@ use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
+use log::debug;
 use mdns_sd::ServiceDaemon;
 
 use actuator_temperature::command::Command;
@@ -94,7 +95,7 @@ impl Environment {
 
         fn success(stream: &mut impl Write, datum: Datum) {
             let datum = datum.to_string();
-            println!("[Environment] generated Datum to send back to sensor: {}", datum);
+            debug!("[Environment] generated Datum to send back to sensor: {}", datum);
             let response = Message::respond_ok().with_body(datum);
             response.write(stream)
         }
@@ -157,7 +158,7 @@ impl Environment {
     /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
     fn handle_post_command(tcp_stream: &mut impl Write, message: Message, self_name: &Name, generators: &Arc<Mutex<HashMap<Id, DatumGenerator>>>) {
         fn success(stream: &mut impl Write) {
-            println!("[Environment] updated generator for Sensor");
+            debug!("[Environment] updated generator for Sensor");
             let response = Message::respond_ok();
             response.write(stream)
         }
@@ -181,7 +182,7 @@ impl Environment {
                     }
                     Model::Thermo5000 => match message.body.as_ref().map(Command::parse) {
                         Some(Ok(command)) => {
-                            println!("[Environment] successfully parsed command: {}", command);
+                            debug!("[Environment] successfully parsed command: {}", command);
 
                             let mut generators = generators.lock().unwrap();
 

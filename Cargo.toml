@@ -1,5 +1,9 @@
 [workspace]
 
+# because edition = "2021"
+# see: https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
+resolver = "2"
+
 members = [
     "device",
     "controller",

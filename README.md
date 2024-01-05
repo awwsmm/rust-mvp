@@ -4,13 +4,32 @@ This Rust IoT project began its life as a 5-day MVP with a team of 3 developers.
 
 This fork takes that initial work and builds on it significantly.
 
-`rust-mvp` is nearly dependency-free, it only requires five crates beyond the standard library
+## running
+
+Run the demo with
+
+```rs
+cargo run
+```
+
+Run the demo with STDOUT logs (at "error", "warn", "info", "debug", or "trace" level)
+
+```rs
+RUST_LOG=info cargo run
+```
+
+## dependencies
+
+`rust-mvp` is nearly dependency-free, it requires only a few crates beyond the standard library, and one JavaScript dependency
 
 1. [`mdns-sd`](https://github.com/keepsimple1/mdns-sd) for mDNS networking
 2. [`chrono`](https://github.com/chronotope/chrono) for UTC timestamps and timestamp de/serialization
 3. [`rand`](https://github.com/rust-random/rand) for random number generation
 4. [`local-ip-address`](https://github.com/EstebanBorai/local-ip-address) for local IP address discovery
 5. [`phf`](https://github.com/rust-phf/rust-phf) for compile-time static `Map`s
+6. [`log`](https://github.com/rust-lang/log) the `rust-lang` official logging framework
+7. [`env_logger`](https://github.com/rust-cli/env_logger) a minimal logging implementation
+8. [`plotly`](https://plotly.com/javascript/) for graphing data in the Web UI
 
 ## crates
 

@@ -4,6 +4,7 @@ use std::net::{IpAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
+use log::{error, info};
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use crate::address::Address;
@@ -45,7 +46,7 @@ pub trait Device: Sized {
     /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
     /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
     fn handler_failure(self_name: Name, tcp_stream: &mut impl Write, msg: &str) {
-        println!("[{}] {}", self_name, msg);
+        error!("[{}] {}", self_name, msg);
         let response = Message::respond_bad_request().with_body(msg);
         response.write(tcp_stream)
     }
@@ -60,7 +61,7 @@ pub trait Device: Sized {
         let name = format!("{}.{}", self.get_id(), Self::get_model());
         let domain = format!("{}._tcp.local.", group);
 
-        println!("[Device::register] registering new Device \"{}\" via mDNS at {}.{}", label, name, domain);
+        info!("[Device::register] registering new Device \"{}\" via mDNS at {}.{}", label, name, domain);
 
         let mut properties = HashMap::new();
         properties.insert("id".to_string(), self.get_id().to_string());
@@ -80,7 +81,7 @@ pub trait Device: Sized {
         let address = address.to_string();
         let name = &self.get_name();
 
-        println!("[Device::bind] binding new TCP listener to \"{}\" at {}", name, address);
+        info!("[Device::bind] binding new TCP listener to \"{}\" at {}", name, address);
 
         TcpListener::bind(address).unwrap()
     }
@@ -147,7 +148,8 @@ pub trait Device: Sized {
 
         std::thread::spawn(move || {
             let service_type = format!("{}._tcp.local.", group);
-            let receiver = mdns.browse(service_type.as_str()).unwrap();
+            let service_type = service_type.as_str();
+            let receiver = mdns.browse(service_type).unwrap();
 
             while let Ok(event) = receiver.recv() {
                 if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
@@ -157,6 +159,8 @@ pub trait Device: Sized {
                     }
                 }
             }
+
+            mdns.stop_browse(service_type).unwrap();
         })
     }
 
@@ -181,7 +185,7 @@ pub trait Device: Sized {
         let devices_lock = map.lock();
         let mut devices_guard = devices_lock.unwrap();
 
-        println!(
+        info!(
             "[Device::discover_continually] \"{}\" discovered \"{}\"",
             self_name,
             info.get_property("name").map(|p| p.val_str()).unwrap_or("<unknown>")
@@ -198,7 +202,7 @@ pub trait Device: Sized {
         let devices_lock = container.lock();
         let mut device = devices_lock.unwrap();
 
-        println!(
+        info!(
             "[Device::discover_once] \"{}\" discovered \"{}\"",
             self_name,
             info.get_property("name").map(|p| p.val_str()).unwrap_or("<unknown>")

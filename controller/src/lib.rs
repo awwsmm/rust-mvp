@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use log::{debug, error};
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use datum::Datum;
@@ -177,6 +178,9 @@ impl Controller {
             std::thread::spawn(move || {
                 let query = Message::request_get("/datum");
 
+                // sleep just for a moment so the Sensor has a chance to grab its first Datum from the Environment
+                std::thread::sleep(Duration::from_millis(100));
+
                 loop {
                     {
                         let sensors = sensors.lock().unwrap();
@@ -190,13 +194,13 @@ impl Controller {
                             let sensor_name = Self::extract_name(info).unwrap();
                             let sensor_model = Self::extract_model(info).unwrap().unwrap();
 
-                            println!("[Controller] querying {} for a Datum", sensor_name);
+                            debug!("[Controller] querying {} for a Datum", sensor_name);
                             query.write(&mut stream);
                             let message = Message::read(&mut stream).unwrap();
 
                             match Datum::parse(message.body.unwrap().trim_start_matches('[').trim_end_matches(']')) {
                                 Ok(datum) => {
-                                    println!("[Controller] received a Datum from {}: {}", sensor_name, datum);
+                                    debug!("[Controller] received a Datum from {}: {}", sensor_name, datum);
 
                                     if !data.contains_key(id) {
                                         data.insert(id.clone(), VecDeque::new());
@@ -212,15 +216,15 @@ impl Controller {
                                     // assess new data point and (maybe) send Command to Actuator
                                     if let Some(assessor) = assessors.get(id).or_else(|| DEFAULT_ASSESSOR.get(sensor_model.to_string().as_str())) {
                                         match (assessor.assess)(&datum) {
-                                            None => println!("[Controller] assessed Datum, but will not produce Command for Actuator"),
+                                            None => debug!("[Controller] assessed Datum, but will not produce Command for Actuator"),
                                             Some(command) => {
-                                                println!("[Controller] attempting to send Command to Actuator: {}", command);
+                                                debug!("[Controller] attempting to send Command to Actuator: {}", command);
 
                                                 match actuators.get(id) {
-                                                    None => println!("[Controller] cannot find Actuator with id: {}", id),
+                                                    None => error!("[Controller] cannot find Actuator with id: {}", id),
                                                     Some(actuator) => {
                                                         let actuator = <Self as Device>::extract_address(actuator).to_string();
-                                                        println!("[Sensor] connecting to Actuator @ {}", actuator);
+                                                        debug!("[Controller] connecting to Actuator @ {}", actuator);
                                                         let mut stream = TcpStream::connect(actuator).unwrap();
                                                         let command = Message::request_post("/command").with_body((*command).to_string());
                                                         command.write(&mut stream);
@@ -229,11 +233,11 @@ impl Controller {
                                             }
                                         }
                                     } else {
-                                        println!("[Controller] assessor does not contain id: {}\nknown ids: {:?}", id, assessors.keys())
+                                        error!("[Controller] assessor does not contain id: {}\nknown ids: {:?}", id, assessors.keys())
                                     }
                                 }
                                 Err(msg) => {
-                                    println!("[Controller] received error: {}", msg)
+                                    error!("[Controller] received error: {}", msg)
                                 }
                             }
                         }

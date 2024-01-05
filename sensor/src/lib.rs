@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use log::{debug, warn};
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 
 use datum::kind::Kind;
@@ -130,17 +131,17 @@ pub trait Sensor: Device {
 
                         match environment.as_ref().map(Self::extract_address) {
                             None => {
-                                println!("[Sensor] {} could not find environment", device_name);
+                                warn!("[Sensor] {} could not find environment", device_name);
                             }
                             Some(address) => {
                                 let mut stream = TcpStream::connect(address.to_string()).unwrap();
 
-                                println!("[Sensor] {} is querying environment for a Datum", device_name);
+                                debug!("[Sensor] {} is querying environment for a Datum", device_name);
                                 query.write(&mut stream);
                                 let message = Message::read(&mut stream).unwrap();
                                 let datum = Datum::parse(message.body.unwrap()).unwrap();
 
-                                println!("[Sensor] {} received a Datum from environment: {}", device_name, datum);
+                                debug!("[Sensor] {} received a Datum from environment: {}", device_name, datum);
 
                                 // enforce buffer length, then push, then process
                                 // .lock() must go in an inner scope so it is _unlocked_ while are thread::sleep()-ing, below

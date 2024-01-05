@@ -58,9 +58,6 @@ mod actuator_temperature_command_tests {
 
     fn serde(command: &Command) -> Result<Command, String> {
         let serialized = command.to_string();
-
-        println!("{}", serialized);
-
         Command::parse(serialized.as_str())
     }
 
