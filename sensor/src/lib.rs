@@ -54,6 +54,7 @@ pub trait Sensor: Device {
             }
         })
     }
+    // coverage: on
 
     /// Describes how `GET /data` requests are handled by `Sensor`s.
     ///
