@@ -372,7 +372,7 @@ mod controller_tests {
 
         let html = include_str!("index.html");
 
-        let expected = ["HTTP/1.1 200 OK", "Content-Length: 1841", "Content-Type: text/html; charset=utf-8", "", html].join("\r\n");
+        let expected = ["HTTP/1.1 200 OK", "Content-Length: 1847", "Content-Type: text/html; charset=utf-8", "", html].join("\r\n");
 
         assert_eq!(actual, format!("{}\r\n\r\n", expected))
     }
