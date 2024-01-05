@@ -66,7 +66,8 @@ pub trait Sensor: Device {
 
         let data = data.lock().unwrap();
         let data: Vec<String> = data.iter().map(|d| d.to_string()).collect();
-        let data = data.join("\r\n");
+        let data = data.join(",");
+        let data = format!("[{}]", data);
 
         let response = Message::respond_ok().with_body(data);
         response.write(tcp_stream)
@@ -82,12 +83,9 @@ pub trait Sensor: Device {
 
         let data = data.lock().unwrap();
         let datum = data.iter().next().map(|d| d.to_string());
+        let datum = format!("[{}]", datum.unwrap_or_default());
 
-        let response = match datum {
-            None => Message::respond_not_found().with_body("no data"),
-            Some(datum) => Message::respond_ok().with_body(datum),
-        };
-
+        let response = Message::respond_ok().with_body(datum);
         response.write(tcp_stream)
     }
 
@@ -172,4 +170,136 @@ pub trait Sensor: Device {
         })
     }
     // coverage: on
+}
+
+#[cfg(test)]
+mod sensor_tests {
+    use datum::unit::Unit;
+    use device::model::Model;
+
+    use super::*;
+
+    struct TestSensor {
+        id: Id,
+        name: Name,
+        environment: Arc<Mutex<Option<ServiceInfo>>>,
+        controller: Arc<Mutex<Option<ServiceInfo>>>,
+        data: Arc<Mutex<VecDeque<Datum>>>,
+    }
+
+    impl Sensor for TestSensor {
+        fn new(id: Id, name: Name) -> Self {
+            TestSensor {
+                id,
+                name,
+                environment: Arc::new(Mutex::new(None)),
+                controller: Arc::new(Mutex::new(None)),
+                data: Arc::new(Mutex::new(VecDeque::new())),
+            }
+        }
+
+        fn get_environment(&self) -> &Arc<Mutex<Option<ServiceInfo>>> {
+            &self.environment
+        }
+
+        fn get_controller(&self) -> &Arc<Mutex<Option<ServiceInfo>>> {
+            &self.controller
+        }
+
+        fn get_datum_value_type() -> Kind {
+            Kind::Float
+        }
+
+        fn get_datum_unit() -> Unit {
+            Unit::DegreesC
+        }
+
+        fn get_data(&self) -> &Arc<Mutex<VecDeque<Datum>>> {
+            &self.data
+        }
+    }
+
+    impl Device for TestSensor {
+        fn get_name(&self) -> &Name {
+            &self.name
+        }
+
+        fn get_id(&self) -> &Id {
+            &self.id
+        }
+
+        fn get_model() -> Model {
+            Model::Unsupported
+        }
+
+        fn get_handler(&self) -> Handler {
+            Box::new(|_| ())
+        }
+    }
+
+    #[test]
+    fn test_handle_get_data() {
+        let mut data = VecDeque::new();
+        let datum1 = Datum::new_now(1.0, Unit::DegreesC);
+        let datum2 = Datum::new_now(2.0, Unit::DegreesC);
+        let datum3 = Datum::new_now(3.0, Unit::DegreesC);
+        data.push_front(datum1.clone());
+        data.push_front(datum2.clone());
+        data.push_front(datum3.clone());
+
+        let data = Arc::new(Mutex::new(data));
+
+        let mut buffer = Vec::new();
+
+        TestSensor::handle_get_data(&mut buffer, &data);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let json = [datum3, datum2, datum1].map(|e| e.to_string()).join(",");
+        let json = format!("[{}]", json);
+
+        let expected = [
+            "HTTP/1.1 200 OK",
+            "Content-Length: 229",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            json.as_str(),
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_get_datum() {
+        let mut data = VecDeque::new();
+        let datum1 = Datum::new_now(1.0, Unit::DegreesC);
+        let datum2 = Datum::new_now(2.0, Unit::DegreesC);
+        let datum3 = Datum::new_now(3.0, Unit::DegreesC);
+        data.push_front(datum1.clone());
+        data.push_front(datum2.clone());
+        data.push_front(datum3.clone());
+
+        let data = Arc::new(Mutex::new(data));
+
+        let mut buffer = Vec::new();
+
+        TestSensor::handle_get_datum(&mut buffer, &data);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let json = datum3.to_string();
+        let json = format!("[{}]", json);
+
+        let expected = [
+            "HTTP/1.1 200 OK",
+            "Content-Length: 77",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            json.as_str(),
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
 }

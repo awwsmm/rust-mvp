@@ -199,7 +199,7 @@ impl Controller {
                             query.write(&mut stream);
                             let message = Message::read(&mut stream).unwrap();
 
-                            match Datum::parse(message.body.unwrap()) {
+                            match Datum::parse(message.body.unwrap().trim_start_matches('[').trim_end_matches(']')) {
                                 Ok(datum) => {
                                     println!("[Controller] received a Datum from {}: {}", sensor_name, datum);
 
