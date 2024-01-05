@@ -277,9 +277,10 @@ mod environment_tests {
         headers.insert("kind", "float");
         headers.insert("unit", "°C");
 
-        let message = Message::request_get("/url").with_headers(headers);
+        // message start_line is arbitrary because generators map is checked first
+        let message = Message::respond_not_found().with_headers(headers);
 
-        let name = Name::new("self name");
+        let name = Name::new("name is arbitrary");
 
         let generators = Arc::new(Mutex::new(HashMap::new()));
 
@@ -307,9 +308,10 @@ mod environment_tests {
         headers.insert("kind", "int");
         headers.insert("unit", "°C");
 
-        let message = Message::request_get("/url").with_headers(headers);
+        // message start_line is arbitrary because headers are checked first
+        let message = Message::respond_not_found().with_headers(headers);
 
-        let name = Name::new("self name");
+        let name = Name::new("name is arbitrary");
 
         let generators = Arc::new(Mutex::new(HashMap::new()));
 
@@ -325,9 +327,10 @@ mod environment_tests {
         headers.insert("kind", "bool");
         headers.insert("unit", "°C");
 
-        let message = Message::request_get("/url").with_headers(headers);
+        // message start_line is arbitrary because headers are checked first
+        let message = Message::respond_not_found().with_headers(headers);
 
-        let name = Name::new("self name");
+        let name = Name::new("name is arbitrary");
 
         let generators = Arc::new(Mutex::new(HashMap::new()));
 
@@ -342,9 +345,10 @@ mod environment_tests {
         headers.insert("kind", "not a valid kind");
         headers.insert("unit", "°C");
 
-        let message = Message::request_get("/url").with_headers(headers);
+        // message start_line is arbitrary because headers are checked first
+        let message = Message::respond_not_found().with_headers(headers);
 
-        let name = Name::new("self name");
+        let name = Name::new("name is arbitrary");
 
         let generators = Arc::new(Mutex::new(HashMap::new()));
 
@@ -372,9 +376,10 @@ mod environment_tests {
         // no "kind" header provided
         headers.insert("unit", "°C");
 
-        let message = Message::request_get("/url").with_headers(headers);
+        // message start_line is arbitrary because headers are checked first
+        let message = Message::respond_not_found().with_headers(headers);
 
-        let name = Name::new("self name");
+        let name = Name::new("name is arbitrary");
 
         let generators = Arc::new(Mutex::new(HashMap::new()));
 
@@ -384,10 +389,10 @@ mod environment_tests {
 
         let expected = [
             "HTTP/1.1 400 Bad Request",
-            "Content-Length: 114",
+            "Content-Length: 128",
             "Content-Type: text/json; charset=utf-8",
             "",
-            "unknown Sensor ID 'GET /url'. To register a new sensor, you must include 'kind' and 'unit' headers in your request",
+            "unknown Sensor ID 'HTTP/1.1 404 Not Found'. To register a new sensor, you must include 'kind' and 'unit' headers in your request",
         ]
         .join("\r\n");
 
@@ -400,7 +405,7 @@ mod environment_tests {
 
         let message = Message::request_get("/datum/my_id");
 
-        let name = Name::new("self name");
+        let name = Name::new("name is arbitrary");
 
         let mut generators = HashMap::new();
         let coefficients = Coefficients::new(0.1, 0.2, 0.3, 0.4, 0.5);
@@ -421,5 +426,278 @@ mod environment_tests {
         assert!(actual.contains("\",\"unit\":\"")); // and then a unit
         assert!(actual.contains("\",\"timestamp\":\"")); // and then a timestamp
         assert!(actual.ends_with("\"}\r\n\r\n"));
+    }
+
+    #[test]
+    fn test_handle_post_command_thermo5000_cool_by() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("id", "my_id");
+        headers.insert("model", "thermo5000");
+
+        let body = r#"{"name":"CoolBy","value":"42.0"}"#;
+
+        // message start_line is arbitrary because we are bypassing the routing
+        let message = Message::respond_not_found().with_headers(headers).with_body(body);
+
+        let name = Name::new("name is arbitrary");
+
+        let mut generators = HashMap::new();
+        let coefficients = Coefficients::new(0.1, 0.2, 0.3, 0.4, 0.5);
+        let generator = DatumGenerator::new(coefficients, 0.6, Unit::DegreesC);
+        generators.insert(Id::new("my_id"), generator);
+        let generators = Arc::new(Mutex::new(generators));
+
+        Environment::handle_post_command(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let expected = ["HTTP/1.1 200 OK", "Content-Type: text/json; charset=utf-8"].join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_post_command_thermo5000_heat_by() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("id", "my_id");
+        headers.insert("model", "thermo5000");
+
+        let body = r#"{"name":"HeatBy","value":"42.0"}"#;
+
+        // message start_line is arbitrary because we are bypassing the routing
+        let message = Message::respond_not_found().with_headers(headers).with_body(body);
+
+        let name = Name::new("name is arbitrary");
+
+        let mut generators = HashMap::new();
+        let coefficients = Coefficients::new(0.1, 0.2, 0.3, 0.4, 0.5);
+        let generator = DatumGenerator::new(coefficients, 0.6, Unit::DegreesC);
+        generators.insert(Id::new("my_id"), generator);
+        let generators = Arc::new(Mutex::new(generators));
+
+        Environment::handle_post_command(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let expected = ["HTTP/1.1 200 OK", "Content-Type: text/json; charset=utf-8"].join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_post_command_unknown_id() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("id", "unknown_id");
+        headers.insert("model", "thermo5000");
+
+        let body = r#"{"name":"CoolBy","value":"42.0"}"#;
+
+        // message start_line is arbitrary because we are bypassing the routing
+        let message = Message::respond_not_found().with_headers(headers).with_body(body);
+
+        let name = Name::new("name is arbitrary");
+
+        let mut generators = HashMap::new();
+        let coefficients = Coefficients::new(0.1, 0.2, 0.3, 0.4, 0.5);
+        let generator = DatumGenerator::new(coefficients, 0.6, Unit::DegreesC);
+        generators.insert(Id::new("known_id"), generator);
+        let generators = Arc::new(Mutex::new(generators));
+
+        Environment::handle_post_command(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let expected = [
+            "HTTP/1.1 400 Bad Request",
+            "Content-Length: 50",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            "cannot update generator for unknown id: unknown_id",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected));
+    }
+
+    #[test]
+    fn test_handle_post_command_bad_command() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("id", "my_id");
+        headers.insert("model", "thermo5000");
+
+        let body = r#"this is not a valid thermo5000 command"#;
+
+        // message start_line is arbitrary because we are bypassing the routing
+        let message = Message::respond_not_found().with_headers(headers).with_body(body);
+        let name = Name::new("name is arbitrary");
+        let generators = Arc::new(Mutex::new(HashMap::new()));
+
+        Environment::handle_post_command(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let expected = [
+            "HTTP/1.1 400 Bad Request",
+            "Content-Length: 86",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            r#"could not parse "Some("this is not a valid thermo5000 command")" as Thermo5000 Command"#,
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_post_command_from_controller() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("id", "my_id");
+        headers.insert("model", "controller"); // <--
+
+        // message start_line is arbitrary because we are bypassing the routing
+        let message = Message::respond_not_found().with_headers(headers);
+        let name = Name::new("name is arbitrary");
+        let generators = Arc::new(Mutex::new(HashMap::new()));
+
+        Environment::handle_post_command(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let expected = [
+            "HTTP/1.1 400 Bad Request",
+            "Content-Length: 53",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            "does not accept Commands directly from the Controller",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_post_command_from_environment() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("id", "my_id");
+        headers.insert("model", "environment"); // <--
+
+        // message start_line is arbitrary because we are bypassing the routing
+        let message = Message::respond_not_found().with_headers(headers);
+        let name = Name::new("name is arbitrary");
+        let generators = Arc::new(Mutex::new(HashMap::new()));
+
+        Environment::handle_post_command(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let expected = [
+            "HTTP/1.1 400 Bad Request",
+            "Content-Length: 36",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            "does not accept Commands from itself",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_post_command_from_unsupported_device() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("id", "my_id");
+        headers.insert("model", "unsupported"); // <--
+
+        // message start_line is arbitrary because we are bypassing the routing
+        let message = Message::respond_not_found().with_headers(headers);
+        let name = Name::new("name is arbitrary");
+        let generators = Arc::new(Mutex::new(HashMap::new()));
+
+        Environment::handle_post_command(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let expected = [
+            "HTTP/1.1 400 Bad Request",
+            "Content-Length: 18",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            "unsupported device",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_post_command_bad_headers() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("id", "my_id");
+        headers.insert("model", "this string cannot be parsed as a model"); // <--
+
+        // message start_line is arbitrary because we are bypassing the routing
+        let message = Message::respond_not_found().with_headers(headers);
+        let name = Name::new("name is arbitrary");
+        let generators = Arc::new(Mutex::new(HashMap::new()));
+
+        Environment::handle_post_command(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let expected = [
+            "HTTP/1.1 400 Bad Request",
+            "Content-Length: 32",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            "could not parse required headers",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_post_command_missing_headers() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("id", "my_id");
+        // "model" header is missing
+
+        // message start_line is arbitrary because we are bypassing the routing
+        let message = Message::respond_not_found().with_headers(headers);
+        let name = Name::new("name is arbitrary");
+        let generators = Arc::new(Mutex::new(HashMap::new()));
+
+        Environment::handle_post_command(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let expected = [
+            "HTTP/1.1 400 Bad Request",
+            "Content-Length: 86",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            "missing required headers. 'id' and 'model' headers are required to update a generator.",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
     }
 }

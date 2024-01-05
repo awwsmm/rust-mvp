@@ -30,19 +30,24 @@ impl Command {
         let string = string.trim_start_matches('{').trim_end_matches('}');
         let mut pieces = string.split(',');
 
-        let name = pieces.next().unwrap().trim_start_matches(r#""name":""#).trim_end_matches('"');
-        let value = pieces.next().unwrap().trim_start_matches(r#""value":""#).trim_end_matches('"');
+        match (pieces.next(), pieces.next()) {
+            (Some(name), Some(command)) => {
+                let name = name.trim_start_matches(r#""name":""#).trim_end_matches('"');
+                let value = command.trim_start_matches(r#""value":""#).trim_end_matches('"');
 
-        match (name, value) {
-            ("CoolBy", value) => match value.parse() {
-                Ok(temp) => Ok(Command::CoolBy(temp)),
-                Err(_) => Err(format!("cannot parse {} as f32", value)),
-            },
-            ("HeatBy", value) => match value.parse() {
-                Ok(temp) => Ok(Command::HeatBy(temp)),
-                Err(_) => Err(format!("cannot parse {} as f32", value)),
-            },
-            _ => Err(format!("cannot parse {} as Command", original)),
+                match (name, value) {
+                    ("CoolBy", value) => match value.parse() {
+                        Ok(temp) => Ok(Command::CoolBy(temp)),
+                        Err(_) => Err(format!("cannot parse '{}' as f32", value)),
+                    },
+                    ("HeatBy", value) => match value.parse() {
+                        Ok(temp) => Ok(Command::HeatBy(temp)),
+                        Err(_) => Err(format!("cannot parse '{}' as f32", value)),
+                    },
+                    _ => Err(format!("cannot parse '{}' as Command", original)),
+                }
+            }
+            _ => Err(format!("cannot parse '{}' as Command", original)),
         }
     }
 }
@@ -79,20 +84,27 @@ mod actuator_temperature_command_tests {
     fn test_parse_failure_cool_by() {
         let serialized = r#"{"name":"CoolBy","value":":("}"#;
         let actual = Command::parse(serialized);
-        assert_eq!(actual, Err("cannot parse :( as f32".to_string()))
+        assert_eq!(actual, Err("cannot parse ':(' as f32".to_string()))
     }
 
     #[test]
     fn test_parse_failure_heat_by() {
         let serialized = r#"{"name":"HeatBy","value":":("}"#;
         let actual = Command::parse(serialized);
-        assert_eq!(actual, Err("cannot parse :( as f32".to_string()))
+        assert_eq!(actual, Err("cannot parse ':(' as f32".to_string()))
     }
 
     #[test]
     fn test_parse_failure() {
+        let serialized = r#"not a command"#;
+        let actual = Command::parse(serialized);
+        assert_eq!(actual, Err(format!("cannot parse '{}' as Command", serialized)))
+    }
+
+    #[test]
+    fn test_parse_failure_bad_value() {
         let serialized = r#"{"name":"Blorp","value":":("}"#;
         let actual = Command::parse(serialized);
-        assert_eq!(actual, Err(format!("cannot parse {} as Command", serialized)))
+        assert_eq!(actual, Err(format!("cannot parse '{}' as Command", serialized)))
     }
 }
