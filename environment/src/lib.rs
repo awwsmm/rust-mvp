@@ -26,7 +26,7 @@ mod generator;
 pub struct Environment {
     name: Name,
     id: Id,
-    attributes: Arc<Mutex<HashMap<Id, DatumGenerator>>>,
+    generators: Arc<Mutex<HashMap<Id, DatumGenerator>>>,
 }
 
 impl Device for Environment {
@@ -48,14 +48,14 @@ impl Device for Environment {
         // Anything which depends on self must be cloned outside of the |stream| lambda.
         // We cannot refer to `self` inside of this lambda.
         let self_name = self.name.clone();
-        let self_attributes = Arc::clone(&self.attributes);
+        let self_generators = Arc::clone(&self.generators);
 
         Box::new(move |stream| {
             if let Ok(message) = Message::read(stream) {
                 if message.start_line.starts_with("GET /datum/") {
-                    Self::handle_get_datum(stream, message, &self_name, &self_attributes)
+                    Self::handle_get_datum(stream, message, &self_name, &self_generators)
                 } else if message.start_line == "POST /command HTTP/1.1" {
-                    Self::handle_post_command(stream, message, &self_name, &self_attributes)
+                    Self::handle_post_command(stream, message, &self_name, &self_generators)
                 } else {
                     let msg = format!("cannot parse request: {}", message.start_line);
                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
@@ -73,7 +73,7 @@ impl Environment {
         Self {
             name,
             id,
-            attributes: Arc::new(Mutex::new(HashMap::new())),
+            generators: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -81,7 +81,7 @@ impl Environment {
     ///
     /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
     /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
-    fn handle_get_datum(tcp_stream: &mut impl Write, message: Message, self_name: &Name, attributes: &Arc<Mutex<HashMap<Id, DatumGenerator>>>) {
+    fn handle_get_datum(tcp_stream: &mut impl Write, message: Message, self_name: &Name, generators: &Arc<Mutex<HashMap<Id, DatumGenerator>>>) {
         // Ask the Environment for the latest Datum for a Sensor by its ID.
         //
         // There are two possibilities here:
@@ -93,7 +93,7 @@ impl Environment {
         let id = message.start_line.trim_start_matches("GET /datum/").trim_end_matches(" HTTP/1.1");
         let id = Id::new(id);
 
-        let mut attributes = attributes.lock().unwrap();
+        let mut generators = generators.lock().unwrap();
 
         fn success(stream: &mut impl Write, datum: Datum) {
             let datum = datum.to_string();
@@ -102,38 +102,33 @@ impl Environment {
             response.write(stream)
         }
 
-        match attributes.get_mut(&id) {
+        match generators.get_mut(&id) {
             None => {
                 // if this Sensor ID is unknown, we can still generate data for it if the user has included the 'kind' and 'unit' headers
                 //     ex: curl --header "kind: bool" --header "unit: °C" 10.12.50.26:5454/datum/my_id
                 match (message.header("kind"), message.header("unit")) {
                     (Some(kind), Some(unit)) => match (Kind::parse(kind), Unit::parse(unit)) {
                         (Ok(kind), Ok(unit)) => {
-                            let datum = match attributes.get_mut(&id) {
-                                Some(generator) => generator.generate(),
-                                None => {
-                                    // we need to return the type (bool, f32, i32) of data the Sensor expects
-                                    let generator = match kind {
-                                        Kind::Bool => {
-                                            unimplemented!()
-                                        }
-                                        Kind::Int => {
-                                            unimplemented!()
-                                        }
-                                        Kind::Float => {
-                                            let coefficients = Coefficients::new(0.0, 0.0, 5.0, 10000.0, 0.0);
-                                            let noise = 0.5;
-                                            DatumGenerator::new(coefficients, noise, unit)
-                                        }
-                                    };
-
-                                    // register this Datum generator to this Id
-                                    attributes.insert(id.clone(), generator);
-
-                                    // generate a random value
-                                    attributes.get_mut(&id).unwrap().generate()
+                            // we need to return the type (bool, f32, i32) of data the Sensor expects
+                            let generator = match kind {
+                                Kind::Bool => {
+                                    unimplemented!()
+                                }
+                                Kind::Int => {
+                                    unimplemented!()
+                                }
+                                Kind::Float => {
+                                    let coefficients = Coefficients::new(0.0, 0.0, 5.0, 10000.0, 0.0);
+                                    let noise = 0.5;
+                                    DatumGenerator::new(coefficients, noise, unit)
                                 }
                             };
+
+                            // register this Datum generator to this Id
+                            generators.insert(id.clone(), generator);
+
+                            // generate a random value
+                            let datum = generators.get_mut(&id).unwrap().generate();
 
                             success(tcp_stream, datum);
                         }
@@ -163,7 +158,7 @@ impl Environment {
     ///
     /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
     /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
-    fn handle_post_command(tcp_stream: &mut impl Write, message: Message, self_name: &Name, attributes: &Arc<Mutex<HashMap<Id, DatumGenerator>>>) {
+    fn handle_post_command(tcp_stream: &mut impl Write, message: Message, self_name: &Name, generators: &Arc<Mutex<HashMap<Id, DatumGenerator>>>) {
         fn success(stream: &mut impl Write) {
             println!("[Environment] updated generator for Sensor");
             let response = Message::respond_ok();
@@ -191,15 +186,15 @@ impl Environment {
                         Some(Ok(command)) => {
                             println!("[Environment] successfully parsed command: {}", command);
 
-                            let mut attributes = attributes.lock().unwrap();
+                            let mut generators = generators.lock().unwrap();
 
-                            match attributes.contains_key(&id) {
+                            match generators.contains_key(&id) {
                                 false => {
                                     let msg = format!("cannot update generator for unknown id: {}", id);
                                     Self::handler_failure(self_name.clone(), tcp_stream, msg.as_str())
                                 }
                                 true => {
-                                    let generator = attributes.get_mut(&id).unwrap();
+                                    let generator = generators.get_mut(&id).unwrap();
                                     match command {
                                         Command::CoolBy(delta) => {
                                             generator.coefficients.constant -= delta * 0.01;
@@ -272,5 +267,159 @@ mod environment_tests {
         let actual = Environment::get_model();
         let expected = Model::Environment;
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_handle_get_datum_new_generator() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("kind", "float");
+        headers.insert("unit", "°C");
+
+        let message = Message::request_get("/url").with_headers(headers);
+
+        let name = Name::new("self name");
+
+        let generators = Arc::new(Mutex::new(HashMap::new()));
+
+        Environment::handle_get_datum(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        // should look something like
+        // HTTP/1.1 200 OK\r\nContent-Length: 84\r\nContent-Type: text/json; charset=utf-8\r\n\r\n{\"value\":\"-0.022500813\",\"unit\":\"°C\",\"timestamp\":\"2024-01-05T12:39:36.962380+00:00\"}\r\n\r\n
+        // but as of this writing, not possible to specify a generator
+
+        assert!(actual.starts_with("HTTP/1.1 200 OK\r\nContent-Length: ")); // and then a content length
+        assert!(actual.contains("\r\nContent-Type: text/json; charset=utf-8\r\n\r\n{\"value\":\"")); // and then a value
+        assert!(actual.contains("\",\"unit\":\"")); // and then a unit
+        assert!(actual.contains("\",\"timestamp\":\"")); // and then a timestamp
+        assert!(actual.ends_with("\"}\r\n\r\n"));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_handle_get_datum_new_generator_int_unimplemented() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("kind", "int");
+        headers.insert("unit", "°C");
+
+        let message = Message::request_get("/url").with_headers(headers);
+
+        let name = Name::new("self name");
+
+        let generators = Arc::new(Mutex::new(HashMap::new()));
+
+        Environment::handle_get_datum(&mut buffer, message, &name, &generators);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_handle_get_datum_new_generator_bool_unimplemented() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("kind", "bool");
+        headers.insert("unit", "°C");
+
+        let message = Message::request_get("/url").with_headers(headers);
+
+        let name = Name::new("self name");
+
+        let generators = Arc::new(Mutex::new(HashMap::new()));
+
+        Environment::handle_get_datum(&mut buffer, message, &name, &generators);
+    }
+
+    #[test]
+    fn test_handle_get_datum_new_generator_bad_headers() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        headers.insert("kind", "not a valid kind");
+        headers.insert("unit", "°C");
+
+        let message = Message::request_get("/url").with_headers(headers);
+
+        let name = Name::new("self name");
+
+        let generators = Arc::new(Mutex::new(HashMap::new()));
+
+        Environment::handle_get_datum(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let expected = [
+            "HTTP/1.1 400 Bad Request",
+            "Content-Length: 32",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            "could not parse required headers",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_get_datum_new_generator_mising_headers() {
+        let mut buffer = Vec::new();
+
+        let mut headers = HashMap::new();
+        // no "kind" header provided
+        headers.insert("unit", "°C");
+
+        let message = Message::request_get("/url").with_headers(headers);
+
+        let name = Name::new("self name");
+
+        let generators = Arc::new(Mutex::new(HashMap::new()));
+
+        Environment::handle_get_datum(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let expected = [
+            "HTTP/1.1 400 Bad Request",
+            "Content-Length: 114",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            "unknown Sensor ID 'GET /url'. To register a new sensor, you must include 'kind' and 'unit' headers in your request",
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_get_datum_existing_generator() {
+        let mut buffer = Vec::new();
+
+        let message = Message::request_get("/datum/my_id");
+
+        let name = Name::new("self name");
+
+        let mut generators = HashMap::new();
+        let coefficients = Coefficients::new(0.1, 0.2, 0.3, 0.4, 0.5);
+        let generator = DatumGenerator::new(coefficients, 0.6, Unit::DegreesC);
+        generators.insert(Id::new("my_id"), generator);
+        let generators = Arc::new(Mutex::new(generators));
+
+        Environment::handle_get_datum(&mut buffer, message, &name, &generators);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        // should look something like
+        // HTTP/1.1 200 OK\r\nContent-Length: 84\r\nContent-Type: text/json; charset=utf-8\r\n\r\n{\"value\":\"-0.022500813\",\"unit\":\"°C\",\"timestamp\":\"2024-01-05T12:39:36.962380+00:00\"}\r\n\r\n
+        // but as of this writing, not possible to specify a generator
+
+        assert!(actual.starts_with("HTTP/1.1 200 OK\r\nContent-Length: ")); // and then a content length
+        assert!(actual.contains("\r\nContent-Type: text/json; charset=utf-8\r\n\r\n{\"value\":\"")); // and then a value
+        assert!(actual.contains("\",\"unit\":\"")); // and then a unit
+        assert!(actual.contains("\",\"timestamp\":\"")); // and then a timestamp
+        assert!(actual.ends_with("\"}\r\n\r\n"));
     }
 }

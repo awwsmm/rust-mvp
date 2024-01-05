@@ -36,7 +36,7 @@ fn main() {
     Controller::start(ip, 6565, Id::new("controller"), Name::new("Controller"), String::from("_controller"));
 
     // --------------------------------------------------------------------------------
-    // spin up the controller
+    // spin up the environment
     // --------------------------------------------------------------------------------
 
     let environment_port = 5454;
@@ -47,17 +47,6 @@ fn main() {
         Name::new("Environment"),
         String::from("_environment"),
     );
-
-    // // we continually tell the Controller to poll the sensors
-    // loop {
-    //     std::thread::sleep(Duration::from_secs(1));
-    //
-    //     Controller::ping_sensor(
-    //         "Controller", // this must be "Controller" or this does not work
-    //         Address::new(ip, environment_port),
-    //         Address::new(ip, sensor_port),
-    //     );
-    // }
 
     std::thread::sleep(Duration::MAX)
 }
