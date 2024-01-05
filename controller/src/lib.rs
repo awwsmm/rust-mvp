@@ -1,4 +1,5 @@
 use std::collections::{HashMap, VecDeque};
+use std::io::Write;
 use std::net::{IpAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -17,11 +18,11 @@ use crate::assessor::{Assessor, DEFAULT_ASSESSOR};
 
 mod assessor;
 
-/// The Controller queries the `Sensor`s for `Datum`s and sends commands to the `Actuator`s.
+/// The Controller queries the `Sensor`s for `Datum`s and sends `Command`s to the `Actuator`s.
 ///
 /// The Controller logically ties a `Sensor` to its corresponding `Actuator`. It queries the
 /// `Sensor` for its data, and makes a decision based on its state and the `Sensor` data, then
-/// constructs an appropriate command to send to that `Sensor`'s `Actuator`.
+/// (optionally) constructs an appropriate command to send to that `Sensor`'s `Actuator`.
 ///
 /// The `Controller`'s state can be queried by an HTML frontend, so some historic data is held
 /// in memory.
@@ -47,6 +48,8 @@ impl Device for Controller {
         Model::Controller
     }
 
+    // coverage: off
+    // routing can be verified by inspection
     fn get_handler(&self) -> Handler {
         // Anything which depends on self must be cloned outside of the |stream| lambda.
         // We cannot refer to `self` inside of this lambda.
@@ -56,47 +59,11 @@ impl Device for Controller {
         Box::new(move |stream| {
             if let Ok(message) = Message::read(stream) {
                 if message.start_line == "GET /data HTTP/1.1" {
-                    // get all of the data in this Controller's buffer, grouped by Sensor
-                    //     ex: curl 10.12.50.26:5454/data
-
-                    let data = self_data.lock().unwrap();
-                    let sensors: Vec<String> = data
-                        .iter()
-                        .map(|(id, buffer)| {
-                            let data: Vec<String> = buffer.iter().map(|d| d.to_string()).collect();
-                            let data = data.join(",");
-                            format!(r#"{{"id":"{}","data":[{}]}}"#, id, data)
-                        })
-                        .collect();
-                    let body = format!("[{}]", sensors.join(","));
-
-                    let response = Message::respond_ok().with_body(body);
-                    response.write(stream)
+                    Self::handle_get_data(stream, &self_data)
                 } else if message.start_line == "GET /datum HTTP/1.1" {
-                    // get the latest Datum in this Controller's buffer, grouped by Sensor
-                    //     ex: curl 10.12.50.26:5454/datum
-
-                    let data = self_data.lock().unwrap();
-                    let sensors: Vec<String> = data
-                        .iter()
-                        .map(|(id, buffer)| {
-                            let data = buffer.iter().next().map(|d| d.to_string());
-                            format!(r#"{{"id":"{}","datum":[{}]}}"#, id, data.unwrap_or_default())
-                        })
-                        .collect();
-                    let body = format!("[{}]", sensors.join(","));
-
-                    let response = Message::respond_ok().with_body(body);
-                    response.write(stream)
+                    Self::handle_get_datum(stream, &self_data)
                 } else if message.start_line == "GET /ui HTTP/1.1" {
-                    let html = std::fs::read_to_string("./controller/resources/index.html").unwrap();
-
-                    let mut headers = HashMap::new();
-                    headers.insert("Content-Type", "text/html; charset=utf-8");
-
-                    let response = Message::respond_ok().with_body(html).with_headers(headers);
-
-                    response.write(stream)
+                    Self::handle_get_ui(stream)
                 } else {
                     let msg = format!("cannot parse request: {}", message.start_line);
                     Self::handler_failure(self_name.clone(), stream, msg.as_str())
@@ -106,6 +73,7 @@ impl Device for Controller {
             }
         })
     }
+    // coverage: on
 }
 
 impl Controller {
@@ -120,6 +88,68 @@ impl Controller {
         }
     }
 
+    /// Describes how `GET /data` requests are handled by the `Controller`.
+    ///
+    /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
+    /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
+    fn handle_get_data(tcp_stream: &mut impl Write, data: &Arc<Mutex<HashMap<Id, VecDeque<Datum>>>>) {
+        // get all of the data in this Controller's buffer, grouped by Sensor
+        //     ex: curl 10.12.50.26:5454/data
+
+        let data = data.lock().unwrap();
+        let sensors: Vec<String> = data
+            .iter()
+            .map(|(id, buffer)| {
+                let data: Vec<String> = buffer.iter().map(|d| d.to_string()).collect();
+                let data = data.join(",");
+                format!(r#"{{"id":"{}","data":[{}]}}"#, id, data)
+            })
+            .collect();
+        let body = format!("[{}]", sensors.join(","));
+
+        let response = Message::respond_ok().with_body(body);
+        response.write(tcp_stream)
+    }
+
+    /// Describes how `GET /datum` requests are handled by the `Controller`.
+    ///
+    /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
+    /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
+    fn handle_get_datum(tcp_stream: &mut impl Write, data: &Arc<Mutex<HashMap<Id, VecDeque<Datum>>>>) {
+        // get the latest Datum in this Controller's buffer, grouped by Sensor
+        //     ex: curl 10.12.50.26:5454/datum
+
+        let data = data.lock().unwrap();
+        let sensors: Vec<String> = data
+            .iter()
+            .map(|(id, buffer)| {
+                let data = buffer.iter().next().map(|d| d.to_string());
+                format!(r#"{{"id":"{}","datum":[{}]}}"#, id, data.unwrap_or_default())
+            })
+            .collect();
+        let body = format!("[{}]", sensors.join(","));
+
+        let response = Message::respond_ok().with_body(body);
+        response.write(tcp_stream)
+    }
+
+    /// Describes how `GET /datum` requests are handled by the `Controller`.
+    ///
+    /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
+    /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
+    fn handle_get_ui(tcp_stream: &mut impl Write) {
+        let html = include_str!("index.html");
+
+        let mut headers = HashMap::new();
+        headers.insert("Content-Type", "text/html; charset=utf-8");
+
+        let response = Message::respond_ok().with_body(html).with_headers(headers);
+
+        response.write(tcp_stream)
+    }
+
+    // coverage: off
+    // this is very difficult to test outside of an integration test
     pub fn start(ip: IpAddr, port: u16, id: Id, name: Name, group: String) -> JoinHandle<()> {
         std::thread::spawn(move || {
             // --------------------------------------------------------------------------------
@@ -213,7 +243,6 @@ impl Controller {
                             }
                         }
                     }
-
                     std::thread::sleep(sleep_duration);
                 }
             });
@@ -224,5 +253,127 @@ impl Controller {
 
             device.respond(ip, port, group.as_str(), mdns)
         })
+    }
+    // coverage: on
+}
+
+#[cfg(test)]
+mod controller_tests {
+    use datum::unit::Unit;
+
+    use super::*;
+
+    #[test]
+    fn test_get_name() {
+        let expected = Name::new("myName");
+        let controller = Controller::new(Id::new("myId"), expected.clone());
+        let actual = controller.get_name();
+        let expected = &expected;
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_get_id() {
+        let expected = Id::new("myId");
+        let controller = Controller::new(expected.clone(), Name::new("myName"));
+        let actual = controller.get_id();
+        let expected = &expected;
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_get_model() {
+        let actual = Controller::get_model();
+        let expected = Model::Controller;
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_handle_get_data() {
+        let id = Id::new("my_sensor");
+
+        let mut data = VecDeque::new();
+        let datum1 = Datum::new_now(1.0, Unit::DegreesC);
+        let datum2 = Datum::new_now(2.0, Unit::DegreesC);
+        let datum3 = Datum::new_now(3.0, Unit::DegreesC);
+        data.push_front(datum1.clone());
+        data.push_front(datum2.clone());
+        data.push_front(datum3.clone());
+
+        let mut all_data = HashMap::new();
+        all_data.insert(id.clone(), data);
+        let all_data = Arc::new(Mutex::new(all_data));
+
+        let mut buffer = Vec::new();
+
+        Controller::handle_get_data(&mut buffer, &all_data);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let json = [datum3, datum2, datum1].map(|e| e.to_string()).join(",");
+        let json = format!(r#"[{{"id":"{}","data":[{}]}}]"#, id, json);
+
+        let expected = [
+            "HTTP/1.1 200 OK",
+            "Content-Length: 257",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            json.as_str(),
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_get_datum() {
+        let id = Id::new("my_sensor");
+
+        let mut data = VecDeque::new();
+        let datum1 = Datum::new_now(1.0, Unit::DegreesC);
+        let datum2 = Datum::new_now(2.0, Unit::DegreesC);
+        let datum3 = Datum::new_now(3.0, Unit::DegreesC);
+        data.push_front(datum1.clone());
+        data.push_front(datum2.clone());
+        data.push_front(datum3.clone());
+
+        let mut all_data = HashMap::new();
+        all_data.insert(id.clone(), data);
+        let all_data = Arc::new(Mutex::new(all_data));
+
+        let mut buffer = Vec::new();
+
+        Controller::handle_get_datum(&mut buffer, &all_data);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let json = datum3.to_string();
+        let json = format!(r#"[{{"id":"{}","datum":[{}]}}]"#, id, json);
+
+        let expected = [
+            "HTTP/1.1 200 OK",
+            "Content-Length: 106",
+            "Content-Type: text/json; charset=utf-8",
+            "",
+            json.as_str(),
+        ]
+        .join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
+    }
+
+    #[test]
+    fn test_handle_get_ui() {
+        let mut buffer = Vec::new();
+
+        Controller::handle_get_ui(&mut buffer);
+
+        let actual = String::from_utf8(buffer).unwrap();
+
+        let html = include_str!("index.html");
+
+        let expected = ["HTTP/1.1 200 OK", "Content-Length: 1841", "Content-Type: text/html; charset=utf-8", "", html].join("\r\n");
+
+        assert_eq!(actual, format!("{}\r\n\r\n", expected))
     }
 }

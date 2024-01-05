@@ -142,7 +142,7 @@ impl Message {
     /// Writes this `Message` into the provided `tcp_stream`.
     ///
     /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
-    /// this is easier to test below. We do not use any `TcpStream`-specific APIs in this method.
+    /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
     pub fn write(&self, tcp_stream: &mut impl Write) {
         tcp_stream.write_all(self.to_string().as_bytes()).unwrap();
     }
@@ -158,7 +158,7 @@ impl Message {
     /// Attempts to read a `Message` from a `BufRead` (usually a `TcpStream`).
     ///
     /// **Design Decision**: similar to [`write`](Self::write), `tcp_stream` is of type `impl BufRead`
-    /// rather than `TcpStream` because this is easier to test below. [`read`](Self::read) is provided
+    /// rather than `TcpStream` because this is easier to test. [`read`](Self::read) is provided
     /// as well, for user convenience.
     fn read_from_buffer(mut tcp_stream: impl BufRead) -> Result<Message, String> {
         let mut message = String::new();

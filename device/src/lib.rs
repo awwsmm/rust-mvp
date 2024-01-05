@@ -43,7 +43,7 @@ pub trait Device: Sized {
     /// Provides a standard way to deal with failures in `get_handler()`.
     ///
     /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
-    /// this is easier to test below. We do not use any `TcpStream`-specific APIs in this method.
+    /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
     fn handler_failure(self_name: Name, tcp_stream: &mut impl Write, msg: &str) {
         println!("[{}] {}", self_name, msg);
         let response = Message::respond_bad_request().with_body(msg);
