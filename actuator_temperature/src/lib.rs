@@ -10,6 +10,7 @@ use device::{Device, Handler};
 
 pub mod command;
 
+/// `TemperatureActuator` is an example implementation of `Actuator`.
 pub struct TemperatureActuator {
     id: Id,
     name: Name,
@@ -29,9 +30,12 @@ impl Device for TemperatureActuator {
         Model::Thermo5000
     }
 
+    // coverage: off
+    // very difficult to test, verify by inspection instead
     fn get_handler(&self) -> Handler {
         self.default_handler()
     }
+    // coverage: on
 }
 
 impl Actuator for TemperatureActuator {
@@ -45,5 +49,85 @@ impl Actuator for TemperatureActuator {
 
     fn get_environment(&self) -> &Arc<Mutex<Option<ServiceInfo>>> {
         &self.environment
+    }
+}
+
+#[cfg(test)]
+mod actuator_temperature_tests {
+    use std::collections::HashMap;
+    use std::net::IpAddr;
+
+    use super::*;
+
+    #[test]
+    fn test_get_name() {
+        let id = Id::new("myId");
+        let name = Name::new("myName");
+        let sensor = TemperatureActuator::new(id.clone(), name.clone());
+
+        let actual = sensor.get_name();
+        let expected = name;
+
+        assert_eq!(actual, &expected)
+    }
+
+    #[test]
+    fn test_get_id() {
+        let id = Id::new("myId");
+        let name = Name::new("myName");
+        let sensor = TemperatureActuator::new(id.clone(), name.clone());
+
+        let actual = sensor.get_id();
+        let expected = id;
+
+        assert_eq!(actual, &expected)
+    }
+
+    #[test]
+    fn test_get_model() {
+        let actual = TemperatureActuator::get_model();
+        let expected = Model::Thermo5000;
+
+        assert_eq!(actual, expected)
+    }
+
+    // ServiceInfo doesn't implement PartialEq, so we have to compare field-by-field...
+    fn compare_service_info(actual: &ServiceInfo, expected: &ServiceInfo) {
+        assert_eq!(actual.is_addr_auto(), expected.is_addr_auto());
+        assert_eq!(actual.get_type(), expected.get_type());
+        assert_eq!(actual.get_subtype(), expected.get_subtype());
+        assert_eq!(actual.get_fullname(), expected.get_fullname());
+
+        assert_eq!(actual.get_property("name"), expected.get_property("name"));
+        assert_eq!(actual.get_property("id"), expected.get_property("id"));
+        assert_eq!(actual.get_property("model"), expected.get_property("model"));
+
+        assert_eq!(actual.get_hostname(), expected.get_hostname());
+        assert_eq!(actual.get_port(), expected.get_port());
+        assert_eq!(actual.get_addresses(), expected.get_addresses());
+        assert_eq!(actual.get_addresses_v4(), expected.get_addresses_v4());
+        assert_eq!(actual.get_host_ttl(), expected.get_host_ttl());
+        assert_eq!(actual.get_other_ttl(), expected.get_other_ttl());
+        assert_eq!(actual.get_priority(), expected.get_priority());
+        assert_eq!(actual.get_weight(), expected.get_weight());
+    }
+
+    #[test]
+    fn test_get_environment() {
+        let sensor = TemperatureActuator::new(Id::new("myId"), Name::new("myName"));
+
+        let expected = ServiceInfo::new("my_domain", "the_name", "a_host", IpAddr::from([1, 2, 3, 4]), 42, HashMap::new()).unwrap();
+
+        {
+            // write to `environment` directly
+            let mut lock = sensor.environment.lock().unwrap();
+            let _ = lock.insert(expected.clone());
+        }
+
+        // read from `environment` indirectly, via get_environment()
+        let lock = sensor.get_environment().lock().unwrap();
+        let actual = lock.as_ref().unwrap();
+
+        compare_service_info(actual, &expected)
     }
 }

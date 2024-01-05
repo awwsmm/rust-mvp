@@ -22,9 +22,9 @@ pub trait Sensor: Device {
 
     fn get_controller(&self) -> &Arc<Mutex<Option<ServiceInfo>>>;
 
-    fn get_datum_value_type(&self) -> Kind;
+    fn get_datum_value_type() -> Kind;
 
-    fn get_datum_unit(&self) -> Unit;
+    fn get_datum_unit() -> Unit;
 
     fn get_data(&self) -> &Arc<Mutex<VecDeque<Datum>>>;
 
@@ -94,8 +94,8 @@ pub trait Sensor: Device {
             // We cannot refer to `device` inside of this lambda.
             let device_name = device.get_name().clone();
             let device_id = device.get_id().clone();
-            let device_kind = device.get_datum_value_type();
-            let device_unit = device.get_datum_unit();
+            let device_kind = Self::get_datum_value_type();
+            let device_unit = Self::get_datum_unit();
 
             let data = Arc::clone(device.get_data());
             let environment = Arc::clone(device.get_environment());

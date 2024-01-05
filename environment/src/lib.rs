@@ -20,9 +20,9 @@ use crate::generator::{Coefficients, DatumGenerator};
 
 mod generator;
 
-/// A test-only example environment which produces data detected by `Sensor`s.
+/// `Environment` is a test-only example environment which produces `Datum`s detected by `Sensor`s.
 ///
-/// The `Environment` can be mutated by `Actuator`s.
+/// The `Environment` can be mutated by `Actuator`s, via `Command`s.
 pub struct Environment {
     name: Name,
     id: Id,
@@ -105,7 +105,11 @@ impl Environment {
         }
     }
 
-    fn handle_get_datum(stream: &mut impl Write, message: Message, self_name: &Name, attributes: &Arc<Mutex<HashMap<Id, DatumGenerator>>>) {
+    /// Describes how `GET /datum/` requests are handled by the `Environment`.
+    ///
+    /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
+    /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
+    fn handle_get_datum(tcp_stream: &mut impl Write, message: Message, self_name: &Name, attributes: &Arc<Mutex<HashMap<Id, DatumGenerator>>>) {
         // Ask the Environment for the latest Datum for a Sensor by its ID.
         //
         // There are two possibilities here:
@@ -134,11 +138,11 @@ impl Environment {
                     (Some(kind), Some(unit)) => match (Kind::parse(kind), Unit::parse(unit)) {
                         (Ok(kind), Ok(unit)) => {
                             let datum = Self::register_new(&mut attributes, &id, kind, unit);
-                            success(stream, datum);
+                            success(tcp_stream, datum);
                         }
                         _ => {
                             let msg = "could not parse required headers";
-                            Self::handler_failure(self_name.clone(), stream, msg)
+                            Self::handler_failure(self_name.clone(), tcp_stream, msg)
                         }
                     },
                     _ => {
@@ -146,19 +150,23 @@ impl Environment {
                             "unknown Sensor ID '{}'. To register a new sensor, you must include 'kind' and 'unit' headers in your request",
                             id
                         );
-                        Self::handler_failure(self_name.clone(), stream, msg.as_str())
+                        Self::handler_failure(self_name.clone(), tcp_stream, msg.as_str())
                     }
                 }
             }
             Some(generator) => {
                 // if this Sensor ID is known, we can generate data for it without any additional information
                 //     ex: curl 10.12.50.26:5454/datum/my_id
-                success(stream, generator.generate())
+                success(tcp_stream, generator.generate())
             }
         }
     }
 
-    fn handle_post_command(stream: &mut impl Write, message: Message, self_name: &Name, attributes: &Arc<Mutex<HashMap<Id, DatumGenerator>>>) {
+    /// Describes how `POST /command` requests are handled by the `Environment`.
+    ///
+    /// **Design Decision**: `tcp_stream` is of type `impl Write` rather than `TcpStream` because
+    /// this is easier to test. We do not use any `TcpStream`-specific APIs in this method.
+    fn handle_post_command(tcp_stream: &mut impl Write, message: Message, self_name: &Name, attributes: &Arc<Mutex<HashMap<Id, DatumGenerator>>>) {
         fn success(stream: &mut impl Write) {
             println!("[Environment] updated generator for Sensor");
             let response = Message::respond_ok();
@@ -172,15 +180,15 @@ impl Environment {
                 (id, Ok(model)) => match model {
                     Model::Controller => {
                         let msg = "does not accept Commands directly from the Controller";
-                        Self::handler_failure(self_name.clone(), stream, msg)
+                        Self::handler_failure(self_name.clone(), tcp_stream, msg)
                     }
                     Model::Environment => {
                         let msg = "does not accept Commands from itself";
-                        Self::handler_failure(self_name.clone(), stream, msg)
+                        Self::handler_failure(self_name.clone(), tcp_stream, msg)
                     }
                     Model::Unsupported => {
                         let msg = "unsupported device";
-                        Self::handler_failure(self_name.clone(), stream, msg)
+                        Self::handler_failure(self_name.clone(), tcp_stream, msg)
                     }
                     Model::Thermo5000 => match message.body.as_ref().map(Command::parse) {
                         Some(Ok(command)) => {
@@ -191,7 +199,7 @@ impl Environment {
                             match attributes.contains_key(&id) {
                                 false => {
                                     let msg = format!("cannot update generator for unknown id: {}", id);
-                                    Self::handler_failure(self_name.clone(), stream, msg.as_str())
+                                    Self::handler_failure(self_name.clone(), tcp_stream, msg.as_str())
                                 }
                                 true => {
                                     let generator = attributes.get_mut(&id).unwrap();
@@ -204,24 +212,24 @@ impl Environment {
                                         }
                                     }
 
-                                    success(stream)
+                                    success(tcp_stream)
                                 }
                             }
                         }
                         _ => {
                             let msg = format!("could not parse \"{:?}\" as Thermo5000 Command", message.body);
-                            Self::handler_failure(self_name.clone(), stream, msg.as_str())
+                            Self::handler_failure(self_name.clone(), tcp_stream, msg.as_str())
                         }
                     },
                 },
                 _ => {
                     let msg = "could not parse required headers";
-                    Self::handler_failure(self_name.clone(), stream, msg)
+                    Self::handler_failure(self_name.clone(), tcp_stream, msg)
                 }
             },
             _ => {
                 let msg = "missing required headers. 'id' and 'model' headers are required to update a generator.";
-                Self::handler_failure(self_name.clone(), stream, msg)
+                Self::handler_failure(self_name.clone(), tcp_stream, msg)
             }
         }
     }
