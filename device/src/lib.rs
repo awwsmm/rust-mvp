@@ -73,12 +73,6 @@ pub trait Device: Sized {
 
     /// Registers this `Device` with mDNS in the specified group.
     fn register(&self, service_info: ServiceInfo, mdns: ServiceDaemon) {
-        println!(
-            "FINDME registering {:?} with mdns at {:?}",
-            service_info.get_property("name"),
-            service_info.get_addresses()
-        );
-
         mdns.register(service_info).unwrap()
     }
 
@@ -96,8 +90,6 @@ pub trait Device: Sized {
     /// listen for incoming `TcpStream`s and handle them appropriately.
     fn respond(&self, ip: IpAddr, port: u16, group: &str, mdns: ServiceDaemon) {
         let service_info = self.get_service_info(ip, port, group);
-
-        println!("FINDME my service info is: {:?}", service_info);
 
         self.register(service_info, mdns);
         let listener = self.bind(Address::new(ip, port));
@@ -162,8 +154,6 @@ pub trait Device: Sized {
 
             while let Ok(event) = receiver.recv() {
                 if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
-                    println!("FINDME discovered {:?} via mdns at {:?}", info.get_property("name"), info.get_addresses());
-
                     save(info, &self_name, &mutex);
                     if unique {
                         break;
