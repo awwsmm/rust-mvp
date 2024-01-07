@@ -35,7 +35,7 @@ impl Device for TemperatureSensor {
     }
 
     fn get_handler(&self) -> Handler {
-        self.default_handler()
+        Sensor::get_handler(self)
     }
 }
 

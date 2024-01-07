@@ -31,7 +31,7 @@ impl Device for TemperatureActuator {
     }
 
     fn get_handler(&self) -> Handler {
-        self.default_handler()
+        Actuator::get_handler(self)
     }
 }
 

@@ -31,7 +31,7 @@ pub trait Sensor: Device {
     fn get_data(&self) -> &Arc<Mutex<VecDeque<Datum>>>;
 
     /// By default, a `Sensor` responds to any request with the latest `Datum`.
-    fn default_handler(&self) -> Handler {
+    fn get_handler(&self) -> Handler {
         let self_name = self.get_name().clone();
 
         // Anything which depends on self must be cloned outside of the |stream| lambda.
