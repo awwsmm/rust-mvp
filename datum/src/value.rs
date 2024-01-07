@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 /// A `datum::value::Value` gives the raw (numeric, boolean, or other) value stored in a `Datum`.
 ///
-/// **Design Decision**: `Datums`s are purposefully not generic (no `<T>` parameter). Instead, the raw
+/// **Design Decision**: `Datum`s are purposefully not generic (no `<T>` parameter). Instead, the raw
 /// value of a `Datum` is contained within a `Value`. Generic types are difficult to work with when
 /// there is a need for heterogeneous collections of data. In this codebase, there are occasions
 /// where we, for example, map `Device` IDs to the kind of data they produce or collect. Doing this
