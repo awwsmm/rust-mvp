@@ -68,6 +68,8 @@ curl localhost:6565/datum
 
 Don't forget to check out the Web UI at http://localhost:6565/ui, as well.
 
+![Live plot of simulated data](https://raw.githubusercontent.com/awwsmm/awwsmm.com/master/blog/images/graph.gif)
+
 ## dependencies
 
 `rust-mvp` is nearly dependency-free, it requires only a few crates beyond the standard library, and one JavaScript dependency
